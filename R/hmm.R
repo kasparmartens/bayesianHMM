@@ -1,3 +1,6 @@
+#' @useDynLib bayesianHMM
+#' @importFrom Rcpp sourceCpp
+
 #' @export
 initial_state_update = function(x){
   return(table(x[1]))
@@ -93,7 +96,6 @@ gibbs_sampling_hmm = function(y, n_hidden_states, alpha0 = 0.1, max_iter = 1000,
 }
 
 # likelihood p(y|x, A, B) = p(y|x, B)
-#' @export
 loglikelihood = function(y, x, B){
   sum(log(B[cbind(x, y)]))
 }
