@@ -17,7 +17,7 @@ transition_mat_update = function(x){
 forward_backward_rcpp = function(y, pi, A, B, k, n){
   # forward
   obj = forward_backward_fast(pi, A, B, y, k, n)
-  return(list(P = obj$P, x_draw = factor(obj$x_draw, levels = 1:k)))
+  return(list(P = obj$P, x_draw = factor(obj$x_draw, levels = 1:k), Q = obj$Q))
 }
 
 #' @export
@@ -37,13 +37,15 @@ forward_backward = function(y, pi, A, B, k, n){
     x_draw[t] = sample(1:k, 1, prob = P[[t+1]][, x_draw[t+1]])
   }
   # backward 2
-  # Q = vector("list", n)
-  # Q[[n]] = P[[n]]
-  # for(t in (n-1):2){
-    # Q[[t]] = P[[t]] * matrix(colSums(Q[[t+1]]) / colSums(P[[t]]), k, k, byrow=T)
-  # }
+  Q = vector("list", n)
+  Q[[n]] = P[[n]]
+  for(t in (n-1):1){
+    q1 = rowSums(Q[[t+1]])
+    p1 = colSums(P[[t]])
+    Q[[t]] = P[[t]] * matrix(ifelse(p1 > 0, q1 / p1, 0), k, k, byrow=T)
+  }
   # most likely hidden state
-  return(list(P = P, x_draw = factor(x_draw, levels = 1:k)))
+  return(list(P = P, x_draw = factor(x_draw, levels = 1:k),  Q = Q))
 }
 
 #' @export
@@ -52,12 +54,12 @@ rdirichlet_mat = function(dirichlet_params){
 }
 
 #' @export
-compute_marginal_distribution = function(P_list, k, n){
+compute_marginal_distribution = function(Q_list, k, n){
   marginal_distr = matrix(0, k, n)
-  for(t in length(P_list):2){
-    marginal_distr[, t] = colSums(P_list[[t]])
+  marginal_distr[, n] = colSums(Q_list[[n]])
+  for(t in (n-1):1){
+    marginal_distr[, t] = rowSums(Q_list[[t+1]])
   }
-  marginal_distr[, 1] = rowSums(P_list[[2]])
   return(marginal_distr)
 }
 
