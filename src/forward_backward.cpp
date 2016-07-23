@@ -75,6 +75,7 @@ NumericVector calculate_rowsums(NumericMatrix mat, int m, int n){
   return x;
 }
 
+//' @export
 // [[Rcpp::export]]
 List forward_backward_fast(NumericVector pi, NumericMatrix A, NumericMatrix B, NumericVector y, int k, int n){
   List P(n), Q(n);
@@ -109,3 +110,18 @@ List forward_backward_fast(NumericVector pi, NumericMatrix A, NumericMatrix B, N
                       Rcpp::Named("Q") = Q);;
 }
 
+//' @export
+// [[Rcpp::export]]
+void swap_matrices(List x, int i, int j){
+  NumericMatrix temp = x[i-1];
+  x[i-1] = x[j-1];
+  x[j-1] = temp;
+}
+
+//' @export
+// [[Rcpp::export]]
+void swap_vectors(List x, int i, int j){
+  NumericVector temp = x[i-1];
+  x[i-1] = x[j-1];
+  x[j-1] = temp;
+}

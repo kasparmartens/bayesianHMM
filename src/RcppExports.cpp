@@ -22,3 +22,27 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
+// swap_matrices
+void swap_matrices(List x, int i, int j);
+RcppExport SEXP bayesianHMM_swap_matrices(SEXP xSEXP, SEXP iSEXP, SEXP jSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< List >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    Rcpp::traits::input_parameter< int >::type j(jSEXP);
+    swap_matrices(x, i, j);
+    return R_NilValue;
+END_RCPP
+}
+// swap_vectors
+void swap_vectors(List x, int i, int j);
+RcppExport SEXP bayesianHMM_swap_vectors(SEXP xSEXP, SEXP iSEXP, SEXP jSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< List >::type x(xSEXP);
+    Rcpp::traits::input_parameter< int >::type i(iSEXP);
+    Rcpp::traits::input_parameter< int >::type j(jSEXP);
+    swap_vectors(x, i, j);
+    return R_NilValue;
+END_RCPP
+}
