@@ -7,6 +7,11 @@ forward_backward_fast <- function(pi, A, B, y, k, n) {
 }
 
 #' @export
+gibbs_sampling_fast <- function(y, alpha, k, s, n, max_iter, burnin, marginal_distr) {
+    .Call('bayesianHMM_gibbs_sampling_fast', PACKAGE = 'bayesianHMM', y, alpha, k, s, n, max_iter, burnin, marginal_distr)
+}
+
+#' @export
 swap_matrices <- function(x, i, j) {
     invisible(.Call('bayesianHMM_swap_matrices', PACKAGE = 'bayesianHMM', x, i, j))
 }

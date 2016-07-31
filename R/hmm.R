@@ -98,6 +98,7 @@ gibbs_sampling_hmm = function(y, n_hidden_states, alpha0 = 0.1, max_iter = 1000,
 }
 
 # likelihood p(y|x, A, B) = p(y|x, B)
-loglikelihood = function(y, x, B){
+#' @export
+hmm_loglikelihood = function(y, x, B){
   sum(log(B[cbind(x, y)]))
 }
