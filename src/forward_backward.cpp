@@ -10,7 +10,7 @@ void normalise_mat(NumericMatrix mat, int m, int n, double sum){
   }
 }
 
-void compute_P(ListOf<NumericMatrix> P, int t, NumericVector pi, NumericMatrix A, NumericVector b, int k){
+void compute_P(ListOf<NumericMatrix> P, double& loglik, int t, NumericVector pi, NumericMatrix A, NumericVector b, int k){
   NumericMatrix PP(k, k);
   double sum = 0;
   double temp;
@@ -21,11 +21,12 @@ void compute_P(ListOf<NumericMatrix> P, int t, NumericVector pi, NumericMatrix A
       PP(r, s) = temp;
     }
   }
+  loglik += log(sum);
   normalise_mat(PP, k, k, sum);
   P[t] = clone(PP);
 }
 
-void compute_P0(ListOf<NumericMatrix> P, NumericVector pi, NumericVector b, int k){
+void compute_P0(ListOf<NumericMatrix> P, double& loglik, NumericVector pi, NumericVector b, int k){
   NumericMatrix PP(k, k);
   double sum = 0;
   for(int s=0; s<k; s++){
@@ -34,6 +35,7 @@ void compute_P0(ListOf<NumericMatrix> P, NumericVector pi, NumericVector b, int 
       sum += PP(r, s);
     }
   }
+  loglik += log(sum);
   normalise_mat(PP, k, k, sum);
   P[0] = clone(PP);
 }
@@ -87,27 +89,27 @@ void initialise_const_mat(NumericMatrix A, double alpha, int nrow, int ncol){
   }
 }
 
-void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, ListOf<NumericMatrix> P, int k, int n){
+void _forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, ListOf<NumericMatrix> P, int k, int n){
   NumericVector b, colsums(k);
   b = B(_, y[0]-1);
-  compute_P0(P, pi, b, k);
+  double loglik=0.0;
+  compute_P0(P, loglik, pi, b, k);
   for(int t=1; t<n; t++){
     calculate_colsums(P[t-1], colsums, k, k);
-    //loglikelihood += std::accumulate(colsums.begin(), colsums.end(), 0.0);
     b = B(_, y[t]-1);
-    compute_P(P, t, colsums, A, b, k);
+    compute_P(P, loglik, t, colsums, A, b, k);
   }
 }
 
-void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, ListOf<NumericMatrix> P, double& loglikelihood, int k, int n){
+void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, ListOf<NumericMatrix> P, double& loglik, int k, int n){
   NumericVector b, colsums(k);
   b = B(_, y[0]-1);
-  compute_P0(P, pi, b, k);
+  compute_P0(P, loglik, pi, b, k);
+  loglik = 0.0;
   for(int t=1; t<n; t++){
     calculate_colsums(P[t-1], colsums, k, k);
-    loglikelihood += std::accumulate(colsums.begin(), colsums.end(), 0.0);
     b = B(_, y[t]-1);
-    compute_P(P, t, colsums, A, b, k);
+    compute_P(P, loglik, t, colsums, A, b, k);
   }
 }
 
@@ -199,7 +201,9 @@ List forward_backward_fast(NumericVector pi, NumericMatrix A, NumericMatrix B, I
     QQ[t] = temp;
   }
   ListOf<NumericMatrix> P(PP), Q(QQ);
-  forward_step(pi, A, B, y, P, k, n);
+  double loglik=0.0;
+
+  forward_step(pi, A, B, y, P, loglik, k, n);
   // now backward sampling
   arma::ivec x(n);
   IntegerVector possible_values = seq_len(k);
@@ -209,9 +213,10 @@ List forward_backward_fast(NumericVector pi, NumericMatrix A, NumericMatrix B, I
 
   IntegerVector xx = as<IntegerVector>(wrap(x));
   xx.attr("dim") = R_NilValue;
-  return List::create(Rcpp::Named("x_draw") = clone(xx),
+  return List::create(Rcpp::Named("x_draw") = xx,
                       Rcpp::Named("P") = P,
-                      Rcpp::Named("Q") = Q);;
+                      Rcpp::Named("Q") = Q,
+                      Rcpp::Named("log_posterior") = loglik);
 }
 
 //' @export
@@ -233,12 +238,14 @@ List gibbs_sampling_fast(IntegerVector y, double alpha, int k, int s, int n, int
   trace_length = (max_iter - burnin + (thin - 1)) / thin;
   List trace_x(trace_length), trace_pi(trace_length), trace_A(trace_length), trace_B(trace_length);
   IntegerVector possible_values = seq_len(k);
+  NumericVector log_posterior(trace_length);
+  double loglik;
 
   initialise_transition_matrices(pi, A, B, k, s);
 
   for(int iter = 1; iter <= max_iter; iter++){
     // forward step
-    forward_step(pi, A, B, y, P, k, n);
+    forward_step(pi, A, B, y, P, loglik, k, n);
     // now backward sampling and nonstochastic backward step
     backward_sampling(x, P, possible_values, k, n);
     if(marginal_distr) backward_step(P, Q, k, n);
@@ -255,6 +262,7 @@ List gibbs_sampling_fast(IntegerVector y, double alpha, int k, int s, int n, int
       trace_pi[index] = clone(pi);
       trace_A[index] = clone(A);
       trace_B[index] = clone(B);
+      log_posterior[index] = loglik;
     }
     if(iter % 100 == 0) printf("iter %d\n", iter);
   }
@@ -262,7 +270,8 @@ List gibbs_sampling_fast(IntegerVector y, double alpha, int k, int s, int n, int
   return List::create(Rcpp::Named("trace_x") = trace_x,
                       Rcpp::Named("trace_pi") = trace_pi,
                       Rcpp::Named("trace_A") = trace_A,
-                      Rcpp::Named("trace_B") = trace_B);;
+                      Rcpp::Named("trace_B") = trace_B,
+                      Rcpp::Named("log_posterior") = log_posterior);
 }
 
 //' @export
@@ -283,13 +292,15 @@ List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0,
   int trace_length, index;
   trace_length = (max_iter - burnin + (thin - 1)) / thin;
   List trace_x(trace_length), trace_pi(trace_length), trace_A(trace_length), trace_B(trace_length);
+  NumericVector log_posterior(trace_length);
+  double loglik;
   IntegerVector possible_values = seq_len(k);
 
   //initialise_transition_matrices(pi, A, B, k, s);
 
   for(int iter = 1; iter <= max_iter; iter++){
     // forward step
-    forward_step(pi, A, B, y, P, k, n);
+    forward_step(pi, A, B, y, P, loglik, k, n);
     // now backward sampling and nonstochastic backward step
     backward_sampling(x, P, possible_values, k, n);
     if(marginal_distr) backward_step(P, Q, k, n);
@@ -306,6 +317,7 @@ List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0,
       trace_pi[index] = clone(pi);
       trace_A[index] = clone(A);
       trace_B[index] = clone(B);
+      log_posterior[index] = (loglik);
     }
     if(iter % 100 == 0) printf("iter %d\n", iter);
   }
@@ -313,7 +325,8 @@ List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0,
   return List::create(Rcpp::Named("trace_x") = trace_x,
                       Rcpp::Named("trace_pi") = trace_pi,
                       Rcpp::Named("trace_A") = trace_A,
-                      Rcpp::Named("trace_B") = trace_B);;
+                      Rcpp::Named("trace_B") = trace_B,
+                      Rcpp::Named("log_posterior") = log_posterior);
 }
 
 //' @export
@@ -362,4 +375,3 @@ void double_crossover(arma::ivec& x, arma::ivec& y, int n){
   x.subvec(start, end-1) = y.subvec(start, end-1);
   y.subvec(start, end-1) = temp;
 }
-
