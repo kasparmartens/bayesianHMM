@@ -2,13 +2,18 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #' @export
-forward_backward_fast <- function(pi, A, B, y, k, n) {
-    .Call('bayesianHMM_forward_backward_fast', PACKAGE = 'bayesianHMM', pi, A, B, y, k, n)
+forward_backward_fast <- function(pi, A, B, y, k, n, marginal_distr) {
+    .Call('bayesianHMM_forward_backward_fast', PACKAGE = 'bayesianHMM', pi, A, B, y, k, n, marginal_distr)
 }
 
 #' @export
-gibbs_sampling_fast <- function(y, alpha, k, s, n, max_iter, burnin, marginal_distr) {
-    .Call('bayesianHMM_gibbs_sampling_fast', PACKAGE = 'bayesianHMM', y, alpha, k, s, n, max_iter, burnin, marginal_distr)
+gibbs_sampling_fast <- function(y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr) {
+    .Call('bayesianHMM_gibbs_sampling_fast', PACKAGE = 'bayesianHMM', y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr)
+}
+
+#' @export
+gibbs_sampling_fast_with_starting_vals <- function(pi0, A0, B0, y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr) {
+    .Call('bayesianHMM_gibbs_sampling_fast_with_starting_vals', PACKAGE = 'bayesianHMM', pi0, A0, B0, y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr)
 }
 
 #' @export
@@ -19,5 +24,15 @@ swap_matrices <- function(x, i, j) {
 #' @export
 swap_vectors <- function(x, i, j) {
     invisible(.Call('bayesianHMM_swap_vectors', PACKAGE = 'bayesianHMM', x, i, j))
+}
+
+#' @export
+crossover <- function(x, y, n) {
+    invisible(.Call('bayesianHMM_crossover', PACKAGE = 'bayesianHMM', x, y, n))
+}
+
+#' @export
+double_crossover <- function(x, y, n) {
+    invisible(.Call('bayesianHMM_double_crossover', PACKAGE = 'bayesianHMM', x, y, n))
 }
 

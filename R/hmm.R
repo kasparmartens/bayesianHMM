@@ -14,9 +14,9 @@ transition_mat_update = function(x){
 }
 
 #' @export
-forward_backward_rcpp = function(y, pi, A, B, k, n){
+forward_backward_rcpp = function(y, pi, A, B, k, n, marginal_distr = TRUE){
   # forward
-  obj = forward_backward_fast(pi, A, B, y, k, n)
+  obj = forward_backward_fast(pi, A, B, y, k, n, marginal_distr)
   return(list(P = obj$P, x_draw = factor(obj$x_draw, levels = 1:k), Q = obj$Q))
 }
 

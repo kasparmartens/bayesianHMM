@@ -51,7 +51,6 @@ void compute_Q(ListOf<NumericMatrix> Q, ListOf<NumericMatrix> P, int t, NumericV
   Q[t] = clone(QQ);
 }
 
-
 void calculate_colsums(NumericMatrix mat, NumericVector res, int m, int n){
   double temp;
   for(int j=0; j<n; j++){
@@ -94,22 +93,33 @@ void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVec
   compute_P0(P, pi, b, k);
   for(int t=1; t<n; t++){
     calculate_colsums(P[t-1], colsums, k, k);
+    //loglikelihood += std::accumulate(colsums.begin(), colsums.end(), 0.0);
     b = B(_, y[t]-1);
     compute_P(P, t, colsums, A, b, k);
   }
 }
 
-IntegerVector backward_sampling(ListOf<NumericMatrix> P, IntegerVector possible_values, int k, int n){
+void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, ListOf<NumericMatrix> P, double& loglikelihood, int k, int n){
+  NumericVector b, colsums(k);
+  b = B(_, y[0]-1);
+  compute_P0(P, pi, b, k);
+  for(int t=1; t<n; t++){
+    calculate_colsums(P[t-1], colsums, k, k);
+    loglikelihood += std::accumulate(colsums.begin(), colsums.end(), 0.0);
+    b = B(_, y[t]-1);
+    compute_P(P, t, colsums, A, b, k);
+  }
+}
+
+void backward_sampling(arma::ivec& x, ListOf<NumericMatrix> P, IntegerVector possible_values, int k, int n){
   NumericVector prob(k);
-  IntegerVector x_draw(n);
   NumericMatrix PP;
   calculate_colsums(P[n-1], prob, k, k);
-  x_draw[n-1] = as<int>(RcppArmadillo::sample(possible_values, 1, false, prob));
+  x[n-1] = as<int>(RcppArmadillo::sample(possible_values, 1, false, prob));
   for(int t=n-1; t>0; t--){
-    prob = P[t](_, x_draw[t]-1);
-    x_draw[t-1] = as<int>(RcppArmadillo::sample(possible_values, 1, false, prob));
+    prob = P[t](_, x[t]-1);
+    x[t-1] = as<int>(RcppArmadillo::sample(possible_values, 1, false, prob));
   }
-  return x_draw;
 }
 
 void backward_step(ListOf<NumericMatrix> P, ListOf<NumericMatrix> Q, int k, int n){
@@ -148,13 +158,13 @@ void rdirichlet_mat(NumericMatrix A, NumericMatrix res, int k, int s){
   }
 }
 
-void transition_mat_update0(NumericVector pi, NumericVector pi_pars, const IntegerVector x, double alpha, int k){
+void transition_mat_update0(NumericVector pi, NumericVector pi_pars, const arma::ivec & x, double alpha, int k){
   initialise_const_vec(pi_pars, alpha, k);
   pi_pars[x[0]-1] += 1;
   rdirichlet_vec(pi_pars, pi, k);
 }
 
-void transition_mat_update1(NumericMatrix A, NumericMatrix A_pars, const IntegerVector x, double alpha, int k, int n){
+void transition_mat_update1(NumericMatrix A, NumericMatrix A_pars, const arma::ivec & x, double alpha, int k, int n){
   initialise_const_mat(A_pars, alpha, k, k);
   for(int t=0; t<(n-1); t++){
     A_pars(x[t]-1, x[t+1]-1) += 1;
@@ -162,7 +172,7 @@ void transition_mat_update1(NumericMatrix A, NumericMatrix A_pars, const Integer
   rdirichlet_mat(A_pars, A, k, k);
 }
 
-void transition_mat_update2(NumericMatrix B, NumericMatrix B_pars, const IntegerVector x, IntegerVector y, double alpha, int k, int s, int n){
+void transition_mat_update2(NumericMatrix B, NumericMatrix B_pars, const arma::ivec & x, IntegerVector y, double alpha, int k, int s, int n){
   initialise_const_mat(B_pars, alpha, k, s);
   for(int t=0; t<n; t++){
     B_pars(x[t]-1, y[t]-1) += 1;
@@ -181,7 +191,7 @@ void initialise_transition_matrices(NumericVector pi, NumericMatrix A, NumericMa
 
 //' @export
 // [[Rcpp::export]]
-List forward_backward_fast(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, int k, int n){
+List forward_backward_fast(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, int k, int n, bool marginal_distr){
   List PP(n), QQ(n);
   NumericMatrix temp(k, k);
   for(int t=0; t<n; t++){
@@ -191,19 +201,22 @@ List forward_backward_fast(NumericVector pi, NumericMatrix A, NumericMatrix B, I
   ListOf<NumericMatrix> P(PP), Q(QQ);
   forward_step(pi, A, B, y, P, k, n);
   // now backward sampling
-  IntegerVector x_draw(n);
+  arma::ivec x(n);
   IntegerVector possible_values = seq_len(k);
-  x_draw = backward_sampling(P, possible_values, k, n);
+  backward_sampling(x, P, possible_values, k, n);
   // and backward recursion to obtain marginal distributions
-  backward_step(P, Q, k, n);
-  return List::create(Rcpp::Named("x_draw") = x_draw,
+  if(marginal_distr) backward_step(P, Q, k, n);
+
+  IntegerVector xx = as<IntegerVector>(wrap(x));
+  xx.attr("dim") = R_NilValue;
+  return List::create(Rcpp::Named("x_draw") = clone(xx),
                       Rcpp::Named("P") = P,
                       Rcpp::Named("Q") = Q);;
 }
 
 //' @export
 // [[Rcpp::export]]
-List gibbs_sampling_fast(IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, bool marginal_distr){
+List gibbs_sampling_fast(IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool marginal_distr){
   NumericVector pi(k), pi_pars(k);
   NumericMatrix A(k, k), B(k, s), A_pars(k, k), B_pars(k, s);
   List PP(n), QQ(n);
@@ -213,11 +226,12 @@ List gibbs_sampling_fast(IntegerVector y, double alpha, int k, int s, int n, int
     QQ[t] = temp;
   }
   ListOf<NumericMatrix> P(PP), Q(QQ);
-  IntegerVector x_draw(n);
+  arma::ivec x(n);
+  IntegerVector xx(n);
 
   int trace_length, index;
-  trace_length = max_iter - burnin;
-  List trace_x(trace_length), trace_A(trace_length), trace_B(trace_length);
+  trace_length = (max_iter - burnin + (thin - 1)) / thin;
+  List trace_x(trace_length), trace_pi(trace_length), trace_A(trace_length), trace_B(trace_length);
   IntegerVector possible_values = seq_len(k);
 
   initialise_transition_matrices(pi, A, B, k, s);
@@ -226,16 +240,19 @@ List gibbs_sampling_fast(IntegerVector y, double alpha, int k, int s, int n, int
     // forward step
     forward_step(pi, A, B, y, P, k, n);
     // now backward sampling and nonstochastic backward step
-    x_draw = backward_sampling(P, possible_values, k, n);
+    backward_sampling(x, P, possible_values, k, n);
     if(marginal_distr) backward_step(P, Q, k, n);
 
-    transition_mat_update0(pi, pi_pars, x_draw, alpha, k);
-    transition_mat_update1(A, A_pars, x_draw, alpha, k, n);
-    transition_mat_update2(B, B_pars, x_draw, y, alpha, k, s, n);
+    transition_mat_update0(pi, pi_pars, x, alpha, k);
+    transition_mat_update1(A, A_pars, x, alpha, k, n);
+    transition_mat_update2(B, B_pars, x, y, alpha, k, s, n);
 
     if(iter > burnin){
-      index = iter - burnin - 1;
-      trace_x[index] = clone(x_draw);
+      index = (iter - burnin - 1)/thin;
+      xx = as<IntegerVector>(wrap(x));
+      xx.attr("dim") = R_NilValue;
+      trace_x[index] = clone(xx);
+      trace_pi[index] = clone(pi);
       trace_A[index] = clone(A);
       trace_B[index] = clone(B);
     }
@@ -243,6 +260,58 @@ List gibbs_sampling_fast(IntegerVector y, double alpha, int k, int s, int n, int
   }
 
   return List::create(Rcpp::Named("trace_x") = trace_x,
+                      Rcpp::Named("trace_pi") = trace_pi,
+                      Rcpp::Named("trace_A") = trace_A,
+                      Rcpp::Named("trace_B") = trace_B);;
+}
+
+//' @export
+// [[Rcpp::export]]
+List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0, NumericMatrix B0, IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool marginal_distr){
+  NumericVector pi_pars(k), pi(clone(pi0));
+  NumericMatrix A_pars(k, k), B_pars(k, s), A(clone(A0)), B(clone(B0));
+  List PP(n), QQ(n);
+  NumericMatrix temp(k, k);
+  for(int t=0; t<n; t++){
+    PP[t] = temp;
+    QQ[t] = temp;
+  }
+  ListOf<NumericMatrix> P(PP), Q(QQ);
+  arma::ivec x(n);
+  IntegerVector xx(n);
+
+  int trace_length, index;
+  trace_length = (max_iter - burnin + (thin - 1)) / thin;
+  List trace_x(trace_length), trace_pi(trace_length), trace_A(trace_length), trace_B(trace_length);
+  IntegerVector possible_values = seq_len(k);
+
+  //initialise_transition_matrices(pi, A, B, k, s);
+
+  for(int iter = 1; iter <= max_iter; iter++){
+    // forward step
+    forward_step(pi, A, B, y, P, k, n);
+    // now backward sampling and nonstochastic backward step
+    backward_sampling(x, P, possible_values, k, n);
+    if(marginal_distr) backward_step(P, Q, k, n);
+
+    transition_mat_update0(pi, pi_pars, x, alpha, k);
+    transition_mat_update1(A, A_pars, x, alpha, k, n);
+    transition_mat_update2(B, B_pars, x, y, alpha, k, s, n);
+
+    if((iter > burnin) && ((iter-1) % thin == 0)){
+      index = (iter - burnin - 1)/thin;
+      xx = as<IntegerVector>(wrap(x));
+      xx.attr("dim") = R_NilValue;
+      trace_x[index] = clone(xx);
+      trace_pi[index] = clone(pi);
+      trace_A[index] = clone(A);
+      trace_B[index] = clone(B);
+    }
+    if(iter % 100 == 0) printf("iter %d\n", iter);
+  }
+
+  return List::create(Rcpp::Named("trace_x") = trace_x,
+                      Rcpp::Named("trace_pi") = trace_pi,
                       Rcpp::Named("trace_A") = trace_A,
                       Rcpp::Named("trace_B") = trace_B);;
 }
@@ -262,3 +331,35 @@ void swap_vectors(List x, int i, int j){
   x[i-1] = x[j-1];
   x[j-1] = temp;
 }
+
+//' @export
+// [[Rcpp::export]]
+void crossover(arma::ivec& x, arma::ivec& y, int n){
+  IntegerVector possible_values = seq_len(n-1);
+  int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
+  arma::ivec temp = y.subvec(0, m-1);
+  for(int i=0; i<m; i++){
+    y[i] = x[i];
+    x[i] = temp[i];
+  }
+}
+
+//' @export
+// [[Rcpp::export]]
+void double_crossover(arma::ivec& x, arma::ivec& y, int n){
+  IntegerVector possible_values = seq_len(n-1);
+  int start = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
+  int end = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
+  if(start == end){
+    return void();
+  }
+  if(start > end){
+    int a = start;
+    start = end;
+    end = a;
+  }
+  arma::ivec temp = x.subvec(start, end-1);
+  x.subvec(start, end-1) = y.subvec(start, end-1);
+  y.subvec(start, end-1) = temp;
+}
+
