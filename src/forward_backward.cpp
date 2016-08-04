@@ -10,47 +10,47 @@ void normalise_mat(NumericMatrix mat, int m, int n, double sum){
   }
 }
 
-void compute_P(ListOf<NumericMatrix> P, double& loglik, int t, NumericVector pi, NumericMatrix A, NumericVector b, int k){
-  NumericMatrix PP(k, k);
+void compute_P(ListOf<NumericMatrix>& P, double& loglik, int t, NumericVector pi, NumericMatrix A, NumericVector b, int k){
+  //NumericMatrix PP(k, k);
   double sum = 0;
   double temp;
   for(int s=0; s<k; s++){
     for(int r=0; r<k; r++){
       temp = pi[r] * A(r, s) * b[s];
       sum += temp;
-      PP(r, s) = temp;
+      P[t](r, s) = temp;
     }
   }
   loglik += log(sum);
-  normalise_mat(PP, k, k, sum);
-  P[t] = clone(PP);
+  normalise_mat(P[t], k, k, sum);
+  //P[t] = clone(PP);
 }
 
-void compute_P0(ListOf<NumericMatrix> P, double& loglik, NumericVector pi, NumericVector b, int k){
-  NumericMatrix PP(k, k);
+void compute_P0(ListOf<NumericMatrix>& P, double& loglik, NumericVector pi, NumericVector b, int k){
+  //NumericMatrix PP(k, k);
   double sum = 0;
   for(int s=0; s<k; s++){
     for(int r=0; r<k; r++){
-      PP(r, s) = pi[r] * b[s];
-      sum += PP(r, s);
+      P[0](r, s) = pi[r] * b[s];
+      sum += P[0](r, s);
     }
   }
   loglik += log(sum);
-  normalise_mat(PP, k, k, sum);
-  P[0] = clone(PP);
+  normalise_mat(P[0], k, k, sum);
+  //P[0] = clone(PP);
 }
 
-void compute_Q(ListOf<NumericMatrix> Q, ListOf<NumericMatrix> P, int t, NumericVector pi_backward, NumericVector pi_forward, int k){
+void compute_Q(ListOf<NumericMatrix>& Q, ListOf<NumericMatrix>& P, int t, NumericVector pi_backward, NumericVector pi_forward, int k){
   //NumericMatrix Q(k, k);
-  NumericMatrix PP(P[t]), QQ(Q[t]);
+  //NumericMatrix PP(P[t]), QQ(Q[t]);
   for(int s=0; s<k; s++){
     if(pi_forward[s]>0){
       for(int r=0; r<k; r++){
-        QQ(r, s) = PP(r, s) * pi_backward[s] / pi_forward[s];
+        Q[t](r, s) = P[t](r, s) * pi_backward[s] / pi_forward[s];
       }
     }
   }
-  Q[t] = clone(QQ);
+  //Q[t] = clone(QQ);
 }
 
 void calculate_colsums(NumericMatrix mat, NumericVector res, int m, int n){
@@ -89,19 +89,19 @@ void initialise_const_mat(NumericMatrix A, double alpha, int nrow, int ncol){
   }
 }
 
-void _forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, ListOf<NumericMatrix> P, int k, int n){
-  NumericVector b, colsums(k);
-  b = B(_, y[0]-1);
-  double loglik=0.0;
-  compute_P0(P, loglik, pi, b, k);
-  for(int t=1; t<n; t++){
-    calculate_colsums(P[t-1], colsums, k, k);
-    b = B(_, y[t]-1);
-    compute_P(P, loglik, t, colsums, A, b, k);
-  }
-}
+// void _forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, ListOf<NumericMatrix>& P, int k, int n){
+//   NumericVector b, colsums(k);
+//   b = B(_, y[0]-1);
+//   double loglik=0.0;
+//   compute_P0(P, loglik, pi, b, k);
+//   for(int t=1; t<n; t++){
+//     calculate_colsums(P[t-1], colsums, k, k);
+//     b = B(_, y[t]-1);
+//     compute_P(P, loglik, t, colsums, A, b, k);
+//   }
+// }
 
-void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, ListOf<NumericMatrix> P, double& loglik, int k, int n){
+void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, ListOf<NumericMatrix>& P, double& loglik, int k, int n){
   NumericVector b, colsums(k);
   b = B(_, y[0]-1);
   compute_P0(P, loglik, pi, b, k);
@@ -113,7 +113,7 @@ void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVec
   }
 }
 
-void backward_sampling(arma::ivec& x, ListOf<NumericMatrix> P, IntegerVector possible_values, int k, int n){
+void backward_sampling(arma::ivec& x, ListOf<NumericMatrix>& P, IntegerVector possible_values, int k, int n){
   NumericVector prob(k);
   NumericMatrix PP;
   calculate_colsums(P[n-1], prob, k, k);
@@ -124,7 +124,7 @@ void backward_sampling(arma::ivec& x, ListOf<NumericMatrix> P, IntegerVector pos
   }
 }
 
-void backward_step(ListOf<NumericMatrix> P, ListOf<NumericMatrix> Q, int k, int n){
+void backward_step(ListOf<NumericMatrix>& P, ListOf<NumericMatrix> Q, int k, int n){
   NumericVector q_forward(k), q_backward(k);
   Q[n-1] = P[n-1];
   for(int t=n-2; t>=0; t--){
@@ -195,8 +195,8 @@ void initialise_transition_matrices(NumericVector pi, NumericMatrix A, NumericMa
 // [[Rcpp::export]]
 List forward_backward_fast(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, int k, int n, bool marginal_distr){
   List PP(n), QQ(n);
-  NumericMatrix temp(k, k);
   for(int t=0; t<n; t++){
+    NumericMatrix temp(k, k);
     PP[t] = temp;
     QQ[t] = temp;
   }
@@ -225,8 +225,8 @@ List gibbs_sampling_fast(IntegerVector y, double alpha, int k, int s, int n, int
   NumericVector pi(k), pi_pars(k);
   NumericMatrix A(k, k), B(k, s), A_pars(k, k), B_pars(k, s);
   List PP(n), QQ(n);
-  NumericMatrix temp(k, k);
   for(int t=0; t<n; t++){
+    NumericMatrix temp(k, k);
     PP[t] = temp;
     QQ[t] = temp;
   }
@@ -280,8 +280,8 @@ List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0,
   NumericVector pi_pars(k), pi(clone(pi0));
   NumericMatrix A_pars(k, k), B_pars(k, s), A(clone(A0)), B(clone(B0));
   List PP(n), QQ(n);
-  NumericMatrix temp(k, k);
   for(int t=0; t<n; t++){
+    NumericMatrix temp(k, k);
     PP[t] = temp;
     QQ[t] = temp;
   }
@@ -375,3 +375,4 @@ void double_crossover(arma::ivec& x, arma::ivec& y, int n){
   x.subvec(start, end-1) = y.subvec(start, end-1);
   y.subvec(start, end-1) = temp;
 }
+
