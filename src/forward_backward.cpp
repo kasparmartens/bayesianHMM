@@ -2,77 +2,68 @@
 using namespace Rcpp;
 using namespace std;
 
-void normalise_mat(NumericMatrix mat, int m, int n, double sum){
-  for(int s=0; s<n; s++){
-    for(int r=0; r<m; r++){
-      mat(r, s) /= sum;
-    }
-  }
+double normalise_mat(NumericMatrix A, int m, int n){
+  // divide all elements of A by the sum of A
+  arma::mat B(A.begin(), m, n, false);
+  double sum = accu(B);
+  B /= sum;
+  return sum;
 }
 
-void compute_P(ListOf<NumericMatrix>& P, double& loglik, int t, NumericVector pi, NumericMatrix A, NumericVector b, int k){
-  //NumericMatrix PP(k, k);
-  double sum = 0;
+void compute_P(NumericMatrix PP, double& loglik, NumericVector pi, NumericMatrix A, NumericVector b, int k){
   double temp;
   for(int s=0; s<k; s++){
     for(int r=0; r<k; r++){
       temp = pi[r] * A(r, s) * b[s];
-      sum += temp;
-      P[t](r, s) = temp;
+      PP(r, s) = temp;
     }
   }
+  double sum = normalise_mat(PP, k, k);
   loglik += log(sum);
-  normalise_mat(P[t], k, k, sum);
-  //P[t] = clone(PP);
 }
 
-void compute_P0(ListOf<NumericMatrix>& P, double& loglik, NumericVector pi, NumericVector b, int k){
-  //NumericMatrix PP(k, k);
-  double sum = 0;
+void compute_P0(NumericMatrix PP, double& loglik, NumericVector pi, NumericVector b, int k){
   for(int s=0; s<k; s++){
     for(int r=0; r<k; r++){
-      P[0](r, s) = pi[r] * b[s];
-      sum += P[0](r, s);
+      PP(r, s) = pi[r] * b[s];
     }
   }
+  double sum = normalise_mat(PP, k, k);
   loglik += log(sum);
-  normalise_mat(P[0], k, k, sum);
-  //P[0] = clone(PP);
 }
 
-void compute_Q(ListOf<NumericMatrix>& Q, ListOf<NumericMatrix>& P, int t, NumericVector pi_backward, NumericVector pi_forward, int k){
-  //NumericMatrix Q(k, k);
-  //NumericMatrix PP(P[t]), QQ(Q[t]);
+void compute_Q(NumericMatrix QQ, NumericMatrix PP, NumericVector pi_backward, NumericVector pi_forward, int k){
   for(int s=0; s<k; s++){
     if(pi_forward[s]>0){
       for(int r=0; r<k; r++){
-        Q[t](r, s) = P[t](r, s) * pi_backward[s] / pi_forward[s];
+        QQ(r, s) = PP(r, s) * pi_backward[s] / pi_forward[s];
       }
     }
   }
-  //Q[t] = clone(QQ);
 }
 
-void calculate_colsums(NumericMatrix mat, NumericVector res, int m, int n){
-  double temp;
-  for(int j=0; j<n; j++){
-    temp = 0;
-    for(int i=0; i<m; i++){
-      temp += mat(i, j);
+double calculate_nondiagonal_sum(NumericMatrix mat, int k){
+  double sum=0;
+  for(int j=0; j<k; j++){
+    for(int i=0; i<k; i++){
+      if(i != j) sum += mat(i, j);
     }
-    res[j] = temp;
   }
+  return sum;
 }
 
-void calculate_rowsums(NumericMatrix mat, NumericVector res, int m, int n){
-  double temp;
-  for(int i=0; i<m; i++){
-    temp = 0;
-    for(int j=0; j<n; j++){
-      temp += mat(i, j);
-    }
-    res[i] = temp;
-  }
+NumericVector calculate_colsums(NumericMatrix A, int m, int n){
+  arma::mat B(A.begin(), m, n, false);
+  arma::rowvec colsums = sum(B, 0);
+  NumericVector out(colsums.begin(), colsums.end());
+  return out;
+}
+
+NumericVector calculate_rowsums(NumericMatrix A, int m, int n){
+  arma::mat B(A.begin(), m, n, false);
+  arma::colvec rowsums = sum(B, 1);
+  NumericVector out(rowsums.begin(), rowsums.end());
+  return out;
 }
 
 void initialise_const_vec(NumericVector pi, double alpha, int length){
@@ -89,34 +80,22 @@ void initialise_const_mat(NumericMatrix A, double alpha, int nrow, int ncol){
   }
 }
 
-// void _forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, ListOf<NumericMatrix>& P, int k, int n){
-//   NumericVector b, colsums(k);
-//   b = B(_, y[0]-1);
-//   double loglik=0.0;
-//   compute_P0(P, loglik, pi, b, k);
-//   for(int t=1; t<n; t++){
-//     calculate_colsums(P[t-1], colsums, k, k);
-//     b = B(_, y[t]-1);
-//     compute_P(P, loglik, t, colsums, A, b, k);
-//   }
-// }
-
 void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, ListOf<NumericMatrix>& P, double& loglik, int k, int n){
   NumericVector b, colsums(k);
   b = B(_, y[0]-1);
-  compute_P0(P, loglik, pi, b, k);
+  compute_P0(P[0], loglik, pi, b, k);
   loglik = 0.0;
   for(int t=1; t<n; t++){
-    calculate_colsums(P[t-1], colsums, k, k);
+    colsums = calculate_colsums(P[t-1], k, k);
     b = B(_, y[t]-1);
-    compute_P(P, loglik, t, colsums, A, b, k);
+    compute_P(P[t], loglik, colsums, A, b, k);
   }
 }
 
 void backward_sampling(arma::ivec& x, ListOf<NumericMatrix>& P, IntegerVector possible_values, int k, int n){
   NumericVector prob(k);
   NumericMatrix PP;
-  calculate_colsums(P[n-1], prob, k, k);
+  prob = calculate_colsums(P[n-1], k, k);
   x[n-1] = as<int>(RcppArmadillo::sample(possible_values, 1, false, prob));
   for(int t=n-1; t>0; t--){
     prob = P[t](_, x[t]-1);
@@ -124,13 +103,19 @@ void backward_sampling(arma::ivec& x, ListOf<NumericMatrix>& P, IntegerVector po
   }
 }
 
-void backward_step(ListOf<NumericMatrix>& P, ListOf<NumericMatrix> Q, int k, int n){
+void backward_step(ListOf<NumericMatrix>& P, ListOf<NumericMatrix>& Q, int k, int n){
   NumericVector q_forward(k), q_backward(k);
   Q[n-1] = P[n-1];
   for(int t=n-2; t>=0; t--){
-    calculate_colsums(P[t], q_forward, k, k);
-    calculate_rowsums(Q[t+1], q_backward, k, k);
-    compute_Q(Q, P, t, q_backward, q_forward, k);
+    q_forward = calculate_colsums(P[t], k, k);
+    q_backward = calculate_rowsums(Q[t+1], k, k);
+    compute_Q(Q[t], P[t], q_backward, q_forward, k);
+  }
+}
+
+void switching_probabilities(ListOf<NumericMatrix>& Q, NumericVector res, int k, int n){
+  for(int t=n-1; t>0; t--){
+    res[t-1] = calculate_nondiagonal_sum(Q[t], k);
   }
 }
 
@@ -160,21 +145,30 @@ void rdirichlet_mat(NumericMatrix A, NumericMatrix res, int k, int s){
   }
 }
 
-void transition_mat_update0(NumericVector pi, NumericVector pi_pars, const arma::ivec & x, double alpha, int k){
+//' @export
+// [[Rcpp::export]]
+void transition_mat_update0(NumericVector pi, const arma::ivec & x, double alpha, int k){
+  NumericVector pi_pars(k);
   initialise_const_vec(pi_pars, alpha, k);
   pi_pars[x[0]-1] += 1;
   rdirichlet_vec(pi_pars, pi, k);
 }
 
-void transition_mat_update1(NumericMatrix A, NumericMatrix A_pars, const arma::ivec & x, double alpha, int k, int n){
+//' @export
+// [[Rcpp::export]]
+void transition_mat_update1(NumericMatrix A, const arma::ivec & x, double alpha, int k, int n){
+  NumericMatrix A_pars(k, k), AA(A);
   initialise_const_mat(A_pars, alpha, k, k);
   for(int t=0; t<(n-1); t++){
     A_pars(x[t]-1, x[t+1]-1) += 1;
   }
-  rdirichlet_mat(A_pars, A, k, k);
+  rdirichlet_mat(A_pars, AA, k, k);
 }
 
-void transition_mat_update2(NumericMatrix B, NumericMatrix B_pars, const arma::ivec & x, IntegerVector y, double alpha, int k, int s, int n){
+//' @export
+// [[Rcpp::export]]
+void transition_mat_update2(NumericMatrix B, const arma::ivec & x, IntegerVector y, double alpha, int k, int s, int n){
+  NumericMatrix B_pars(k, s);
   initialise_const_mat(B_pars, alpha, k, s);
   for(int t=0; t<n; t++){
     B_pars(x[t]-1, y[t]-1) += 1;
@@ -196,9 +190,8 @@ void initialise_transition_matrices(NumericVector pi, NumericMatrix A, NumericMa
 List forward_backward_fast(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, int k, int n, bool marginal_distr){
   List PP(n), QQ(n);
   for(int t=0; t<n; t++){
-    NumericMatrix temp(k, k);
-    PP[t] = temp;
-    QQ[t] = temp;
+    PP[t] = NumericMatrix(k, k);
+    QQ[t] = NumericMatrix(k, k);
   }
   ListOf<NumericMatrix> P(PP), Q(QQ);
   double loglik=0.0;
@@ -221,69 +214,13 @@ List forward_backward_fast(NumericVector pi, NumericMatrix A, NumericMatrix B, I
 
 //' @export
 // [[Rcpp::export]]
-List gibbs_sampling_fast(IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool marginal_distr){
-  NumericVector pi(k), pi_pars(k);
-  NumericMatrix A(k, k), B(k, s), A_pars(k, k), B_pars(k, s);
-  List PP(n), QQ(n);
-  for(int t=0; t<n; t++){
-    NumericMatrix temp(k, k);
-    PP[t] = temp;
-    QQ[t] = temp;
-  }
-  ListOf<NumericMatrix> P(PP), Q(QQ);
-  arma::ivec x(n);
-  IntegerVector xx(n);
-
-  int trace_length, index;
-  trace_length = (max_iter - burnin + (thin - 1)) / thin;
-  List trace_x(trace_length), trace_pi(trace_length), trace_A(trace_length), trace_B(trace_length);
-  IntegerVector possible_values = seq_len(k);
-  NumericVector log_posterior(trace_length);
-  double loglik;
-
-  initialise_transition_matrices(pi, A, B, k, s);
-
-  for(int iter = 1; iter <= max_iter; iter++){
-    // forward step
-    forward_step(pi, A, B, y, P, loglik, k, n);
-    // now backward sampling and nonstochastic backward step
-    backward_sampling(x, P, possible_values, k, n);
-    if(marginal_distr) backward_step(P, Q, k, n);
-
-    transition_mat_update0(pi, pi_pars, x, alpha, k);
-    transition_mat_update1(A, A_pars, x, alpha, k, n);
-    transition_mat_update2(B, B_pars, x, y, alpha, k, s, n);
-
-    if(iter > burnin){
-      index = (iter - burnin - 1)/thin;
-      xx = as<IntegerVector>(wrap(x));
-      xx.attr("dim") = R_NilValue;
-      trace_x[index] = clone(xx);
-      trace_pi[index] = clone(pi);
-      trace_A[index] = clone(A);
-      trace_B[index] = clone(B);
-      log_posterior[index] = loglik;
-    }
-    if(iter % 100 == 0) printf("iter %d\n", iter);
-  }
-
-  return List::create(Rcpp::Named("trace_x") = trace_x,
-                      Rcpp::Named("trace_pi") = trace_pi,
-                      Rcpp::Named("trace_A") = trace_A,
-                      Rcpp::Named("trace_B") = trace_B,
-                      Rcpp::Named("log_posterior") = log_posterior);
-}
-
-//' @export
-// [[Rcpp::export]]
 List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0, NumericMatrix B0, IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool marginal_distr){
-  NumericVector pi_pars(k), pi(clone(pi0));
-  NumericMatrix A_pars(k, k), B_pars(k, s), A(clone(A0)), B(clone(B0));
+  NumericVector pi(clone(pi0));
+  NumericMatrix A(clone(A0)), B(clone(B0));
   List PP(n), QQ(n);
   for(int t=0; t<n; t++){
-    NumericMatrix temp(k, k);
-    PP[t] = temp;
-    QQ[t] = temp;
+    PP[t] = NumericMatrix(k, k);
+    QQ[t] = NumericMatrix(k, k);
   }
   ListOf<NumericMatrix> P(PP), Q(QQ);
   arma::ivec x(n);
@@ -291,23 +228,25 @@ List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0,
 
   int trace_length, index;
   trace_length = (max_iter - burnin + (thin - 1)) / thin;
-  List trace_x(trace_length), trace_pi(trace_length), trace_A(trace_length), trace_B(trace_length);
+  List trace_x(trace_length), trace_pi(trace_length), trace_A(trace_length), trace_B(trace_length), trace_switching_prob(trace_length);
   NumericVector log_posterior(trace_length);
   double loglik;
   IntegerVector possible_values = seq_len(k);
-
-  //initialise_transition_matrices(pi, A, B, k, s);
+  NumericVector switching_prob(n-1);
 
   for(int iter = 1; iter <= max_iter; iter++){
     // forward step
     forward_step(pi, A, B, y, P, loglik, k, n);
     // now backward sampling and nonstochastic backward step
     backward_sampling(x, P, possible_values, k, n);
-    if(marginal_distr) backward_step(P, Q, k, n);
+    if(marginal_distr){
+      backward_step(P, Q, k, n);
+      switching_probabilities(Q, switching_prob, k, n);
+    }
 
-    transition_mat_update0(pi, pi_pars, x, alpha, k);
-    transition_mat_update1(A, A_pars, x, alpha, k, n);
-    transition_mat_update2(B, B_pars, x, y, alpha, k, s, n);
+    transition_mat_update0(pi, x, alpha, k);
+    transition_mat_update1(A, x, alpha, k, n);
+    transition_mat_update2(B, x, y, alpha, k, s, n);
 
     if((iter > burnin) && ((iter-1) % thin == 0)){
       index = (iter - burnin - 1)/thin;
@@ -317,7 +256,8 @@ List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0,
       trace_pi[index] = clone(pi);
       trace_A[index] = clone(A);
       trace_B[index] = clone(B);
-      log_posterior[index] = (loglik);
+      log_posterior[index] = loglik;
+      trace_switching_prob[index] = clone(switching_prob);
     }
     if(iter % 100 == 0) printf("iter %d\n", iter);
   }
@@ -326,7 +266,17 @@ List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0,
                       Rcpp::Named("trace_pi") = trace_pi,
                       Rcpp::Named("trace_A") = trace_A,
                       Rcpp::Named("trace_B") = trace_B,
-                      Rcpp::Named("log_posterior") = log_posterior);
+                      Rcpp::Named("log_posterior") = log_posterior,
+                      Rcpp::Named("switching_prob") = trace_switching_prob);
+}
+
+//' @export
+// [[Rcpp::export]]
+List gibbs_sampling_fast(IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool marginal_distr){
+  NumericVector pi(k);
+  NumericMatrix A(k, k), B(k, s);
+  initialise_transition_matrices(pi, A, B, k, s);
+  return gibbs_sampling_fast_with_starting_vals(pi, A, B, y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr);
 }
 
 //' @export

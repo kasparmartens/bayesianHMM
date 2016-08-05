@@ -2,18 +2,33 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #' @export
+transition_mat_update0 <- function(pi, x, alpha, k) {
+    invisible(.Call('bayesianHMM_transition_mat_update0', PACKAGE = 'bayesianHMM', pi, x, alpha, k))
+}
+
+#' @export
+transition_mat_update1 <- function(A, x, alpha, k, n) {
+    invisible(.Call('bayesianHMM_transition_mat_update1', PACKAGE = 'bayesianHMM', A, x, alpha, k, n))
+}
+
+#' @export
+transition_mat_update2 <- function(B, x, y, alpha, k, s, n) {
+    invisible(.Call('bayesianHMM_transition_mat_update2', PACKAGE = 'bayesianHMM', B, x, y, alpha, k, s, n))
+}
+
+#' @export
 forward_backward_fast <- function(pi, A, B, y, k, n, marginal_distr) {
     .Call('bayesianHMM_forward_backward_fast', PACKAGE = 'bayesianHMM', pi, A, B, y, k, n, marginal_distr)
 }
 
 #' @export
-gibbs_sampling_fast <- function(y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr) {
-    .Call('bayesianHMM_gibbs_sampling_fast', PACKAGE = 'bayesianHMM', y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr)
+gibbs_sampling_fast_with_starting_vals <- function(pi0, A0, B0, y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr) {
+    .Call('bayesianHMM_gibbs_sampling_fast_with_starting_vals', PACKAGE = 'bayesianHMM', pi0, A0, B0, y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr)
 }
 
 #' @export
-gibbs_sampling_fast_with_starting_vals <- function(pi0, A0, B0, y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr) {
-    .Call('bayesianHMM_gibbs_sampling_fast_with_starting_vals', PACKAGE = 'bayesianHMM', pi0, A0, B0, y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr)
+gibbs_sampling_fast <- function(y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr) {
+    .Call('bayesianHMM_gibbs_sampling_fast', PACKAGE = 'bayesianHMM', y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr)
 }
 
 #' @export
