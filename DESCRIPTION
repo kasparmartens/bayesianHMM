@@ -1,6 +1,6 @@
-Package: bayesianHMM
+Package: ensembleHMM
 Type: Package
-Title: What the Package Does (Title Case)
+Title: Ensemble MCMC for Hidden Markov Models
 Version: 0.1
 Date: 2016-07-18
 Author: Who wrote it

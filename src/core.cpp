@@ -5,14 +5,6 @@
 using namespace Rcpp;
 using namespace std;
 
-double normalise_mat(NumericMatrix A, int m, int n){
-  // divide all elements of A by the sum of A
-  arma::mat B(A.begin(), m, n, false);
-  double sum = accu(B);
-  B /= sum;
-  return sum;
-}
-
 void compute_P(NumericMatrix PP, double& loglik, NumericVector pi, NumericMatrix A, NumericVector b, int k){
   double temp;
   for(int s=0; s<k; s++){
@@ -45,32 +37,7 @@ void compute_Q(NumericMatrix QQ, NumericMatrix PP, NumericVector pi_backward, Nu
   }
 }
 
-double calculate_nondiagonal_sum(NumericMatrix mat, int k){
-  double sum=0;
-  for(int j=0; j<k; j++){
-    for(int i=0; i<k; i++){
-      if(i != j) sum += mat(i, j);
-    }
-  }
-  return sum;
-}
 
-NumericVector calculate_colsums(NumericMatrix A, int m, int n){
-  arma::mat B(A.begin(), m, n, false);
-  arma::rowvec colsums = sum(B, 0);
-  NumericVector out(colsums.begin(), colsums.end());
-  return out;
-}
-
-NumericVector calculate_rowsums(NumericMatrix A, int m, int n){
-  arma::mat B(A.begin(), m, n, false);
-  arma::colvec rowsums = sum(B, 1);
-  NumericVector out(rowsums.begin(), rowsums.end());
-  return out;
-}
-
-//' @export
-// [[Rcpp::export]]
 void update_marginal_distr(ListOf<NumericMatrix> Q, NumericMatrix res, int k, int n){
   arma::mat out(res.begin(), k, n, false);
   for(int t=1; t<=n-1; t++){
@@ -87,19 +54,6 @@ void update_marginal_distr(ListOf<NumericMatrix> Q, NumericMatrix res, int k, in
   out.col(n-1) += temp;
 }
 
-void initialise_const_vec(NumericVector pi, double alpha, int length){
-  for(int i=0; i<length; i++){
-    pi[i] = alpha;
-  }
-}
-
-void initialise_const_mat(NumericMatrix A, double alpha, int nrow, int ncol){
-  for(int i=0; i<nrow; i++){
-    for(int j=0; j<ncol; j++){
-      A(i, j) = alpha;
-    }
-  }
-}
 
 void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, ListOf<NumericMatrix>& P, double& loglik, int k, int n){
   NumericVector b, colsums(k);
@@ -206,6 +160,37 @@ double loglikelihood(IntegerVector& y, arma::ivec& x, NumericMatrix& B, int n){
     loglik += log(B(x[t]-1, y[t]-1));
   }
   return loglik;
+}
+
+double loglikelihood_x(arma::ivec& x, NumericVector&pi, NumericMatrix& A, int n){
+  double loglik = pi[x[0]-1];
+  for(int t=1; t<n; t++){
+    loglik += log(A(x[t-1]-1, x[t]-1));
+  }
+  return loglik;
+}
+
+double MH_acceptance_prob_swap_everything(IntegerVector& y, arma::ivec& x1, NumericMatrix& B1, arma::ivec& x2, NumericMatrix& B2, 
+                                     double inv_temp1, double inv_temp2, int n){
+  double loglik1 = loglikelihood(y, x1, B1, n);
+  double loglik2 = loglikelihood(y, x2, B2, n);
+  double ratio = exp(-(inv_temp1 - inv_temp2)*(loglik1 - loglik2));
+  return ratio;
+}
+
+double MH_acceptance_prob_swap_pars(double marginal_loglik1, double marginal_loglik2, double inv_temp1, double inv_temp2){
+  double ratio = exp(-(inv_temp1 - inv_temp2)*(marginal_loglik1 - marginal_loglik2));
+  return ratio;
+}
+
+double MH_acceptance_prob_swap_x(IntegerVector& y, 
+                                 arma::ivec& x1, NumericVector& pi1, NumericMatrix& A1, NumericMatrix& B1, 
+                                 arma::ivec& x2, NumericVector& pi2, NumericMatrix& A2, NumericMatrix& B2, 
+                                 double inv_temp1, double inv_temp2, int n){
+  double logratio_x = loglikelihood_x(x1, pi2, A2, n) + loglikelihood_x(x2, pi1, A1, n) - loglikelihood_x(x1, pi1, A1, n) - loglikelihood_x(x2, pi2, A2, n);
+  double logratio_y = inv_temp2 * loglikelihood(y, x1, B2, n) + inv_temp1 * loglikelihood(y, x2, B1, n) - inv_temp2 * loglikelihood(y, x2, B2, n) - inv_temp1 * loglikelihood(y, x1, B1, n);
+  double ratio = exp(logratio_x + logratio_y);
+  return ratio;
 }
 
 void initialise_transition_matrices(NumericVector pi, NumericMatrix A, NumericMatrix B, int k, int s){
@@ -328,40 +313,6 @@ void initialise_mat_list(List& mat_list, int n, int k, int s){
   }
 }
 
-// void swap(NumericMatrix A, NumericMatrix B){
-//   NumericMatrix temp = B;
-//   B = A;
-//   A = temp;
-// }
-// 
-// void swap(NumericVector A, NumericVector B){
-//   NumericVector temp = B;
-//   B = A;
-//   A = temp;
-// }
-// 
-// void swap(arma::ivec& A, arma::ivec& B){
-//   arma::ivec& temp = B;
-//   B = A;
-//   A = temp;
-// }
-
-
-//' @export
-// [[Rcpp::export]]
-void swap_matrices(List x, int i, int j){
-  NumericMatrix temp = x[i-1];
-  x[i-1] = x[j-1];
-  x[j-1] = temp;
-}
-
-//' @export
-// [[Rcpp::export]]
-void swap_vectors(List x, int i, int j){
-  NumericVector temp = x[i-1];
-  x[i-1] = x[j-1];
-  x[j-1] = temp;
-}
 
 //' @export
 // [[Rcpp::export]]
@@ -424,12 +375,25 @@ void scale_marginal_distr(NumericMatrix marginal_distr_res, int k, int n, int ma
 
 //' @export
 // [[Rcpp::export]]
-List ensemble(int n_chains, IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool estimate_marginals, bool is_fixed_B){
+List ensemble(int n_chains, IntegerVector y, double alpha, int k, int s, int n, 
+              int max_iter, int burnin, int thin, 
+              bool estimate_marginals, bool is_fixed_B, bool parallel_tempering, bool crossovers, 
+              NumericVector temperatures, int swap_type, int swaps_burnin, NumericMatrix B, IntegerVector which_chains){
 
   // initialise ensemble of n_chains
   Ensemble ensemble(n_chains, k, s, n, alpha, is_fixed_B);
+  
   // initialise transition matrices for all chains in the ensemble
-  ensemble.initialise_transition_matrices();
+  if(is_fixed_B){
+    ensemble.initialise_transition_matrices(B);
+  } else{
+    ensemble.initialise_transition_matrices();
+  }
+  
+  // parallel tempering initilisation
+  if(parallel_tempering){
+    ensemble.activate_parallel_tempering(temperatures);
+  }
 
   List PP(n), QQ(n);
   for(int t=0; t<n; t++){
@@ -439,31 +403,41 @@ List ensemble(int n_chains, IntegerVector y, double alpha, int k, int s, int n, 
   ListOf<NumericMatrix> P(PP), Q(QQ);
 
   int index;
+  int n_chains_out = which_chains.size();
   int trace_length = (max_iter - burnin + (thin - 1)) / thin;
-  int list_length = n_chains * trace_length;
-  List tr_x(list_length), tr_pi(list_length), tr_A(list_length), tr_B(list_length), tr_switching_prob(list_length), tr_loglik(list_length);
+  int list_length = n_chains_out * trace_length;
+  List tr_x(list_length), tr_pi(list_length), tr_A(list_length), tr_B(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length);
 
   for(int iter = 1; iter <= max_iter; iter++){
     ensemble.update_chains(y, P, Q, estimate_marginals && (iter > burnin));
 
-    ensemble.do_crossover();
+    if(crossovers && (iter > swaps_burnin)){
+      ensemble.do_crossover();
+    }
+    if(parallel_tempering && (iter > swaps_burnin)){
+      if(swap_type == 0) ensemble.swap_everything(y);
+      if(swap_type == 1) ensemble.swap_pars(y);
+      if(swap_type == 2) ensemble.swap_x(y);
+    }
     
     if((iter > burnin) && ((iter-1) % thin == 0)){
       index = (iter - burnin - 1)/thin;
-      ensemble.copy_values_to_trace(tr_x, tr_pi, tr_A, tr_B, tr_loglik, tr_switching_prob, index);
+      ensemble.copy_values_to_trace(which_chains, tr_x, tr_pi, tr_A, tr_B, tr_loglik, tr_loglik_cond, tr_switching_prob, index);
     }
     if(iter % 1000 == 0) printf("iter %d\n", iter);
   }
 
   ensemble.scale_marginals(max_iter, burnin);
-  ListOf<NumericMatrix> tr_marginal_distr = ensemble.get_copy_of_marginals();
+  ListOf<NumericMatrix> tr_marginal_distr = ensemble.get_copy_of_marginals(which_chains);
 
   return List::create(Rcpp::Named("trace_x") = tr_x,
                       Rcpp::Named("trace_pi") = tr_pi,
                       Rcpp::Named("trace_A") = tr_A,
                       Rcpp::Named("trace_B") = tr_B,
                       Rcpp::Named("log_posterior") = tr_loglik,
+                      Rcpp::Named("log_posterior_cond") = tr_loglik_cond,
                       Rcpp::Named("switching_prob") = tr_switching_prob,
-                      Rcpp::Named("marginal_distr") = tr_marginal_distr);
+                      Rcpp::Named("marginal_distr") = tr_marginal_distr, 
+                      Rcpp::Named("acceptance_ratio") = ensemble.get_acceptance_ratio());
 
 }

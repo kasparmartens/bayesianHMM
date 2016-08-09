@@ -2,47 +2,32 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #' @export
-update_marginal_distr <- function(Q, res, k, n) {
-    invisible(.Call('bayesianHMM_update_marginal_distr', PACKAGE = 'bayesianHMM', Q, res, k, n))
-}
-
-#' @export
 forward_backward_fast <- function(pi, A, B, y, k, n, marginal_distr) {
-    .Call('bayesianHMM_forward_backward_fast', PACKAGE = 'bayesianHMM', pi, A, B, y, k, n, marginal_distr)
+    .Call('ensembleHMM_forward_backward_fast', PACKAGE = 'ensembleHMM', pi, A, B, y, k, n, marginal_distr)
 }
 
 #' @export
 gibbs_sampling_fast_with_starting_vals <- function(pi0, A0, B0, y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr, is_fixed_B) {
-    .Call('bayesianHMM_gibbs_sampling_fast_with_starting_vals', PACKAGE = 'bayesianHMM', pi0, A0, B0, y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr, is_fixed_B)
+    .Call('ensembleHMM_gibbs_sampling_fast_with_starting_vals', PACKAGE = 'ensembleHMM', pi0, A0, B0, y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr, is_fixed_B)
 }
 
 #' @export
 gibbs_sampling_fast <- function(y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr, is_fixed_B) {
-    .Call('bayesianHMM_gibbs_sampling_fast', PACKAGE = 'bayesianHMM', y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr, is_fixed_B)
-}
-
-#' @export
-swap_matrices <- function(x, i, j) {
-    invisible(.Call('bayesianHMM_swap_matrices', PACKAGE = 'bayesianHMM', x, i, j))
-}
-
-#' @export
-swap_vectors <- function(x, i, j) {
-    invisible(.Call('bayesianHMM_swap_vectors', PACKAGE = 'bayesianHMM', x, i, j))
+    .Call('ensembleHMM_gibbs_sampling_fast', PACKAGE = 'ensembleHMM', y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr, is_fixed_B)
 }
 
 #' @export
 crossover <- function(x, y, n) {
-    invisible(.Call('bayesianHMM_crossover', PACKAGE = 'bayesianHMM', x, y, n))
+    invisible(.Call('ensembleHMM_crossover', PACKAGE = 'ensembleHMM', x, y, n))
 }
 
 #' @export
 double_crossover <- function(x, y, n) {
-    invisible(.Call('bayesianHMM_double_crossover', PACKAGE = 'bayesianHMM', x, y, n))
+    invisible(.Call('ensembleHMM_double_crossover', PACKAGE = 'ensembleHMM', x, y, n))
 }
 
 #' @export
-ensemble <- function(n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, is_fixed_B) {
-    .Call('bayesianHMM_ensemble', PACKAGE = 'bayesianHMM', n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, is_fixed_B)
+ensemble <- function(n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, is_fixed_B, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, B, which_chains) {
+    .Call('ensembleHMM_ensemble', PACKAGE = 'ensembleHMM', n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, is_fixed_B, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, B, which_chains)
 }
 

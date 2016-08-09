@@ -31,3 +31,24 @@ generate_nonmarkov_seq = function(n, obs_transition, n_breakpoints = 5){
   }
   return(list(x = factor(x, levels = 1:k_hidden), y = factor(y, levels = 1:k_obs)))
 }
+
+#' @export
+design_seq = function(segment_lengths, classes, obs_transition){
+  if(length(segment_lengths) != length(classes)) stop()
+  n = sum(segment_lengths)
+  # generate x
+  x = rep(NA, n)
+  cum_lengths = c(0, cumsum(segment_lengths))
+  for(i in 1:length(segment_lengths)){
+    ind = (cum_lengths[i]+1):(cum_lengths[i+1])
+    x[ind] = classes[i]
+  }
+  # generate y
+  y = rep(NA, n)
+  k_hidden = nrow(obs_transition)
+  k_obs = ncol(obs_transition)
+  for(i in 1:n){
+    y[i] = sample(1:k_obs, 1, prob = obs_transition[x[i], ])
+  }
+  return(list(x = factor(x, levels = 1:k_hidden), y = factor(y, levels = 1:k_obs)))
+}

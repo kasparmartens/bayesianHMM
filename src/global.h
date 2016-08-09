@@ -39,7 +39,6 @@ void transition_mat_update0(NumericVector pi, const arma::ivec & x, double alpha
 
 void transition_mat_update1(NumericMatrix A, const arma::ivec & x, double alpha, int k, int n);
 
-
 void transition_mat_update2(NumericMatrix B, const arma::ivec & x, IntegerVector y, double alpha, int k, int s, int n);
 
 void initialise_transition_matrices(NumericVector pi, NumericMatrix A, NumericMatrix B, int k, int s);
@@ -53,3 +52,15 @@ IntegerVector sample_helper(int n_chains, int n);
 void transition_mat_update3(NumericMatrix B, const arma::ivec & x, IntegerVector y, double alpha, int k, int s, int n, double inv_temperature);
 
 double loglikelihood(IntegerVector& y, arma::ivec& x, NumericMatrix& B, int n);
+
+double loglikelihood_x(arma::ivec& x, NumericVector&pi, NumericMatrix& A, int n);
+
+double MH_acceptance_prob_swap_everything(IntegerVector& y, arma::ivec& x1, NumericMatrix& B1, arma::ivec& x2, NumericMatrix& B2, 
+                                          double inv_temp1, double inv_temp2, int n);
+
+double MH_acceptance_prob_swap_pars(double marginal_loglik1, double marginal_loglik2, double inv_temp1, double inv_temp2);
+
+double MH_acceptance_prob_swap_x(IntegerVector& y, 
+                                 arma::ivec& x1, NumericVector& pi1, NumericMatrix& A1, NumericMatrix& B1, 
+                                 arma::ivec& x2, NumericVector& pi2, NumericMatrix& A2, NumericMatrix& B2, 
+                                 double inv_temp1, double inv_temp2, int n);

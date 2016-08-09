@@ -1,26 +1,22 @@
-#' @useDynLib bayesianHMM
+#' @useDynLib ensembleHMM
 #' @importFrom Rcpp sourceCpp
 
-#' @export
 initial_state_update = function(x){
   return(table(x[1]))
 }
 
-#' @export
 transition_mat_update = function(x){
   x1 = x[-length(x)]
   x2 = x[-1]
   return(table(x1, x2))
 }
 
-#' @export
 forward_backward_rcpp = function(y, pi, A, B, k, n, marginal_distr = TRUE){
   # forward
   obj = forward_backward_fast(pi, A, B, y, k, n, marginal_distr)
   return(list(P = obj$P, x_draw = factor(obj$x_draw, levels = 1:k), Q = obj$Q))
 }
 
-#' @export
 forward_backward = function(y, pi, A, B, k, n){
   # forward
   P = vector("list", n)
@@ -53,7 +49,6 @@ rdirichlet_mat = function(dirichlet_params){
   t(apply(dirichlet_params, 1, function(x)rdirichlet(1, x)))
 }
 
-#' @export
 compute_marginal_distribution = function(Q_list, k, n){
   marginal_distr = matrix(0, k, n)
   marginal_distr[, n] = colSums(Q_list[[n]])
@@ -63,7 +58,6 @@ compute_marginal_distribution = function(Q_list, k, n){
   return(marginal_distr)
 }
 
-#' @export
 gibbs_sampling_hmm = function(y, n_hidden_states, alpha0 = 0.1, max_iter = 1000, burnin = 500){
   if(!is.factor(y)) stop("y must be a factor variable!")
   if(burnin >= max_iter) stop("burnin too large!")
@@ -98,7 +92,6 @@ gibbs_sampling_hmm = function(y, n_hidden_states, alpha0 = 0.1, max_iter = 1000,
 }
 
 # likelihood p(y|x, A, B) = p(y|x, B)
-#' @export
 hmm_loglikelihood = function(y, x, B){
   sum(log(B[cbind(x, y)]))
 }

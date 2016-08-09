@@ -6,22 +6,9 @@
 
 using namespace Rcpp;
 
-// update_marginal_distr
-void update_marginal_distr(ListOf<NumericMatrix> Q, NumericMatrix res, int k, int n);
-RcppExport SEXP bayesianHMM_update_marginal_distr(SEXP QSEXP, SEXP resSEXP, SEXP kSEXP, SEXP nSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< ListOf<NumericMatrix> >::type Q(QSEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type res(resSEXP);
-    Rcpp::traits::input_parameter< int >::type k(kSEXP);
-    Rcpp::traits::input_parameter< int >::type n(nSEXP);
-    update_marginal_distr(Q, res, k, n);
-    return R_NilValue;
-END_RCPP
-}
 // forward_backward_fast
 List forward_backward_fast(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, int k, int n, bool marginal_distr);
-RcppExport SEXP bayesianHMM_forward_backward_fast(SEXP piSEXP, SEXP ASEXP, SEXP BSEXP, SEXP ySEXP, SEXP kSEXP, SEXP nSEXP, SEXP marginal_distrSEXP) {
+RcppExport SEXP ensembleHMM_forward_backward_fast(SEXP piSEXP, SEXP ASEXP, SEXP BSEXP, SEXP ySEXP, SEXP kSEXP, SEXP nSEXP, SEXP marginal_distrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
@@ -38,7 +25,7 @@ END_RCPP
 }
 // gibbs_sampling_fast_with_starting_vals
 List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0, NumericMatrix B0, IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool marginal_distr, bool is_fixed_B);
-RcppExport SEXP bayesianHMM_gibbs_sampling_fast_with_starting_vals(SEXP pi0SEXP, SEXP A0SEXP, SEXP B0SEXP, SEXP ySEXP, SEXP alphaSEXP, SEXP kSEXP, SEXP sSEXP, SEXP nSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP marginal_distrSEXP, SEXP is_fixed_BSEXP) {
+RcppExport SEXP ensembleHMM_gibbs_sampling_fast_with_starting_vals(SEXP pi0SEXP, SEXP A0SEXP, SEXP B0SEXP, SEXP ySEXP, SEXP alphaSEXP, SEXP kSEXP, SEXP sSEXP, SEXP nSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP marginal_distrSEXP, SEXP is_fixed_BSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
@@ -61,7 +48,7 @@ END_RCPP
 }
 // gibbs_sampling_fast
 List gibbs_sampling_fast(IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool marginal_distr, bool is_fixed_B);
-RcppExport SEXP bayesianHMM_gibbs_sampling_fast(SEXP ySEXP, SEXP alphaSEXP, SEXP kSEXP, SEXP sSEXP, SEXP nSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP marginal_distrSEXP, SEXP is_fixed_BSEXP) {
+RcppExport SEXP ensembleHMM_gibbs_sampling_fast(SEXP ySEXP, SEXP alphaSEXP, SEXP kSEXP, SEXP sSEXP, SEXP nSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP marginal_distrSEXP, SEXP is_fixed_BSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
@@ -79,33 +66,9 @@ BEGIN_RCPP
     return __result;
 END_RCPP
 }
-// swap_matrices
-void swap_matrices(List x, int i, int j);
-RcppExport SEXP bayesianHMM_swap_matrices(SEXP xSEXP, SEXP iSEXP, SEXP jSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< List >::type x(xSEXP);
-    Rcpp::traits::input_parameter< int >::type i(iSEXP);
-    Rcpp::traits::input_parameter< int >::type j(jSEXP);
-    swap_matrices(x, i, j);
-    return R_NilValue;
-END_RCPP
-}
-// swap_vectors
-void swap_vectors(List x, int i, int j);
-RcppExport SEXP bayesianHMM_swap_vectors(SEXP xSEXP, SEXP iSEXP, SEXP jSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< List >::type x(xSEXP);
-    Rcpp::traits::input_parameter< int >::type i(iSEXP);
-    Rcpp::traits::input_parameter< int >::type j(jSEXP);
-    swap_vectors(x, i, j);
-    return R_NilValue;
-END_RCPP
-}
 // crossover
 void crossover(arma::ivec& x, arma::ivec& y, int n);
-RcppExport SEXP bayesianHMM_crossover(SEXP xSEXP, SEXP ySEXP, SEXP nSEXP) {
+RcppExport SEXP ensembleHMM_crossover(SEXP xSEXP, SEXP ySEXP, SEXP nSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope __rngScope;
     Rcpp::traits::input_parameter< arma::ivec& >::type x(xSEXP);
@@ -117,7 +80,7 @@ END_RCPP
 }
 // double_crossover
 void double_crossover(arma::ivec& x, arma::ivec& y, int n);
-RcppExport SEXP bayesianHMM_double_crossover(SEXP xSEXP, SEXP ySEXP, SEXP nSEXP) {
+RcppExport SEXP ensembleHMM_double_crossover(SEXP xSEXP, SEXP ySEXP, SEXP nSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope __rngScope;
     Rcpp::traits::input_parameter< arma::ivec& >::type x(xSEXP);
@@ -128,8 +91,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // ensemble
-List ensemble(int n_chains, IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool estimate_marginals, bool is_fixed_B);
-RcppExport SEXP bayesianHMM_ensemble(SEXP n_chainsSEXP, SEXP ySEXP, SEXP alphaSEXP, SEXP kSEXP, SEXP sSEXP, SEXP nSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP estimate_marginalsSEXP, SEXP is_fixed_BSEXP) {
+List ensemble(int n_chains, IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool estimate_marginals, bool is_fixed_B, bool parallel_tempering, bool crossovers, NumericVector temperatures, int swap_type, int swaps_burnin, NumericMatrix B, IntegerVector which_chains);
+RcppExport SEXP ensembleHMM_ensemble(SEXP n_chainsSEXP, SEXP ySEXP, SEXP alphaSEXP, SEXP kSEXP, SEXP sSEXP, SEXP nSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP estimate_marginalsSEXP, SEXP is_fixed_BSEXP, SEXP parallel_temperingSEXP, SEXP crossoversSEXP, SEXP temperaturesSEXP, SEXP swap_typeSEXP, SEXP swaps_burninSEXP, SEXP BSEXP, SEXP which_chainsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
@@ -144,7 +107,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type thin(thinSEXP);
     Rcpp::traits::input_parameter< bool >::type estimate_marginals(estimate_marginalsSEXP);
     Rcpp::traits::input_parameter< bool >::type is_fixed_B(is_fixed_BSEXP);
-    __result = Rcpp::wrap(ensemble(n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, is_fixed_B));
+    Rcpp::traits::input_parameter< bool >::type parallel_tempering(parallel_temperingSEXP);
+    Rcpp::traits::input_parameter< bool >::type crossovers(crossoversSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type temperatures(temperaturesSEXP);
+    Rcpp::traits::input_parameter< int >::type swap_type(swap_typeSEXP);
+    Rcpp::traits::input_parameter< int >::type swaps_burnin(swaps_burninSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type B(BSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type which_chains(which_chainsSEXP);
+    __result = Rcpp::wrap(ensemble(n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, is_fixed_B, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, B, which_chains));
     return __result;
 END_RCPP
 }

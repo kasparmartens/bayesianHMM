@@ -1,1 +1,1 @@
-# bayesianHMM
+# Ensemble MCMC for Hidden Markov Models
