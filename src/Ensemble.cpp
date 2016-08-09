@@ -67,6 +67,11 @@ void Ensemble::swap_everything(IntegerVector& y){
     std::swap(chains[j].get_pi(), chains[j+1].get_pi());
     std::swap(chains[j].get_x(), chains[j+1].get_x());
     n_accepts += 1;
+    
+    // update B_tempered
+    for(int i=0; i<n_chains; i++){
+      chains[i].update_B_tempered();
+    }
   }
   n_total += 1;
 }
@@ -80,6 +85,11 @@ void Ensemble::swap_pars(IntegerVector& y){
     std::swap(chains[j].get_A(), chains[j+1].get_A());
     std::swap(chains[j].get_pi(), chains[j+1].get_pi());
     n_accepts += 1;
+    
+    // update B_tempered
+    for(int i=0; i<n_chains; i++){
+      chains[i].update_B_tempered();
+    }
   }
   n_total += 1;
 }
@@ -93,6 +103,11 @@ void Ensemble::swap_x(IntegerVector& y){
   if(R::runif(0,1) < accept_prob){
     std::swap(chains[j].get_x(), chains[j+1].get_x());
     n_accepts += 1;
+    
+    // update B_tempered
+    for(int i=0; i<n_chains; i++){
+      chains[i].update_B_tempered();
+    }
   }
   n_total += 1;
 }
