@@ -55,10 +55,16 @@ double loglikelihood(IntegerVector& y, arma::ivec& x, NumericMatrix& B, int n);
 
 double loglikelihood_x(arma::ivec& x, NumericVector&pi, NumericMatrix& A, int n);
 
+double marginal_loglikelihood(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, int k, int s, int n, double inv_temp);
+
 double MH_acceptance_prob_swap_everything(IntegerVector& y, arma::ivec& x1, NumericMatrix& B1, arma::ivec& x2, NumericMatrix& B2, 
                                           double inv_temp1, double inv_temp2, int n);
 
-double MH_acceptance_prob_swap_pars(double marginal_loglik1, double marginal_loglik2, double inv_temp1, double inv_temp2);
+//double MH_acceptance_prob_swap_pars(double marginal_loglik1, double marginal_loglik2, double inv_temp1, double inv_temp2);
+double MH_acceptance_prob_swap_pars(IntegerVector& y, 
+                                    NumericVector& pi1, NumericMatrix& A1, NumericMatrix& B1, 
+                                    NumericVector& pi2, NumericMatrix& A2, NumericMatrix& B2, 
+                                    double inv_temp1, double inv_temp2, int k, int s, int n);
 
 double MH_acceptance_prob_swap_x(IntegerVector& y, 
                                  arma::ivec& x1, NumericVector& pi1, NumericMatrix& A1, NumericMatrix& B1, 

@@ -6,7 +6,7 @@
 using namespace Rcpp;
 
 class Ensemble{
-  int n_chains, n;
+  int n_chains, k, s, n;
   std::vector<Chain> chains;
   bool do_parallel_tempering;
   int n_accepts, n_total;
@@ -30,6 +30,8 @@ public:
   void scale_marginals(int max_iter, int burnin);
   
   void do_crossover();
+  
+  void do_crossovers(int n_crossovers);
   
   void swap_everything(IntegerVector& y);
   

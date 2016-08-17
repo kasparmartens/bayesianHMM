@@ -2,15 +2,17 @@
 
 using namespace Rcpp;
 
-Ensemble::Ensemble(int n_chains_, int k, int s, int n_, double alpha, bool is_fixed_B) : 
+Ensemble::Ensemble(int n_chains_, int k_, int s_, int n_, double alpha, bool is_fixed_B) : 
   chains(std::vector<Chain>()) {
   do_parallel_tempering = false;
   n_chains = n_chains_;
+  k = k_;
+  s = s_;
   n = n_;
   n_accepts = 0;
   n_total = 0;
   for(int i=0; i<n_chains; i++){
-    chains.push_back(Chain(k, s, n_, alpha, is_fixed_B));
+    chains.push_back(Chain(k_, s_, n_, alpha, is_fixed_B));
   }
 }
 
@@ -55,6 +57,12 @@ void Ensemble::do_crossover(){
   double_crossover(chains[i].get_x(), chains[j].get_x(), n);
 }
 
+void Ensemble::do_crossovers(int n_crossovers){
+  for(int i=0; i<n_crossovers; i++){
+    do_crossover();
+  }
+}
+
 void Ensemble::swap_everything(IntegerVector& y){
   // pick chains j and j+1, and propose to swap parameters
   int j = as<int>(sample_helper(n_chains-1, 1)) - 1;
@@ -79,7 +87,10 @@ void Ensemble::swap_everything(IntegerVector& y){
 void Ensemble::swap_pars(IntegerVector& y){
   // pick chains j and j+1, and propose to swap parameters
   int j = as<int>(sample_helper(n_chains-1, 1)) - 1;
-  double accept_prob = MH_acceptance_prob_swap_pars(chains[j].get_loglik(), chains[j+1].get_loglik(), chains[j].get_inv_temperature(), chains[j+1].get_inv_temperature());
+  //double accept_prob = MH_acceptance_prob_swap_pars(chains[j].calculate_loglik_marginal(y), chains[j+1].calculate_loglik_marginal(y), chains[j].get_inv_temperature(), chains[j+1].get_inv_temperature());
+  double accept_prob = MH_acceptance_prob_swap_pars(y, chains[j].get_pi(), chains[j].get_A(), chains[j].get_B(), 
+                                                    chains[j+1].get_pi(), chains[j+1].get_A(), chains[j+1].get_B(), 
+                                                    chains[j].get_inv_temperature(), chains[j+1].get_inv_temperature(), k, s, n);
   if(R::runif(0,1) < accept_prob){
     std::swap(chains[j].get_B(), chains[j+1].get_B());
     std::swap(chains[j].get_A(), chains[j+1].get_A());

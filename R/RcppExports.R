@@ -27,7 +27,12 @@ double_crossover <- function(x, y, n) {
 }
 
 #' @export
-ensemble <- function(n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, is_fixed_B, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, B, which_chains) {
-    .Call('ensembleHMM_ensemble', PACKAGE = 'ensembleHMM', n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, is_fixed_B, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, B, which_chains)
+ensemble <- function(n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, is_fixed_B, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, n_crossovers, B, which_chains) {
+    .Call('ensembleHMM_ensemble', PACKAGE = 'ensembleHMM', n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, is_fixed_B, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, n_crossovers, B, which_chains)
+}
+
+#' @export
+hamming_distance <- function(X, n, m) {
+    .Call('ensembleHMM_hamming_distance', PACKAGE = 'ensembleHMM', X, n, m)
 }
 

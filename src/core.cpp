@@ -6,11 +6,9 @@ using namespace Rcpp;
 using namespace std;
 
 void compute_P(NumericMatrix PP, double& loglik, NumericVector pi, NumericMatrix A, NumericVector b, int k){
-  double temp;
   for(int s=0; s<k; s++){
     for(int r=0; r<k; r++){
-      temp = pi[r] * A(r, s) * b[s];
-      PP(r, s) = temp;
+      PP(r, s) = pi[r] * A(r, s) * b[s];
     }
   }
   double sum = normalise_mat(PP, k, k);
@@ -170,6 +168,41 @@ double loglikelihood_x(arma::ivec& x, NumericVector&pi, NumericMatrix& A, int n)
   return loglik;
 }
 
+double marginal_loglikelihood(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, int k, int s, int n, double inv_temp){
+  // temper B
+  NumericMatrix B_tempered(k, s);
+  for(int j=0; j<s; j++){
+    for(int i=0; i<k; i++){
+      B_tempered(i, j) = pow(B(i, j), inv_temp);
+    }
+  }
+  
+  double loglik = 0.0;
+  NumericMatrix PP(k, k);
+  NumericVector b, colsums(k);
+  b = B_tempered(_, y[0]-1);
+  
+  for(int s=0; s<k; s++){
+    for(int r=0; r<k; r++){
+      PP(r, s) = pi[r] * b[s];
+    }
+  }
+  loglik += log(normalise_mat(PP, k, k));
+  
+  for(int t=1; t<n; t++){
+    colsums = calculate_colsums(PP, k, k);
+    b = B_tempered(_, y[t]-1);
+    
+    for(int s=0; s<k; s++){
+      for(int r=0; r<k; r++){
+        PP(r, s) = pi[r] * A(r, s) * b[s];
+      }
+    }
+    loglik += log(normalise_mat(PP, k, k));
+  }
+  return loglik;
+}
+
 double MH_acceptance_prob_swap_everything(IntegerVector& y, arma::ivec& x1, NumericMatrix& B1, arma::ivec& x2, NumericMatrix& B2, 
                                      double inv_temp1, double inv_temp2, int n){
   double loglik1 = loglikelihood(y, x1, B1, n);
@@ -178,10 +211,22 @@ double MH_acceptance_prob_swap_everything(IntegerVector& y, arma::ivec& x1, Nume
   return ratio;
 }
 
-double MH_acceptance_prob_swap_pars(double marginal_loglik1, double marginal_loglik2, double inv_temp1, double inv_temp2){
-  double ratio = exp(-(inv_temp1 - inv_temp2)*(marginal_loglik1 - marginal_loglik2));
+double MH_acceptance_prob_swap_pars(IntegerVector& y, 
+                                    NumericVector& pi1, NumericMatrix& A1, NumericMatrix& B1, 
+                                    NumericVector& pi2, NumericMatrix& A2, NumericMatrix& B2, 
+                                    double inv_temp1, double inv_temp2, int k, int s, int n){
+  double ll_12 = marginal_loglikelihood(pi1, A1, B1, y, k, s, n, inv_temp2);
+  double ll_21 = marginal_loglikelihood(pi2, A2, B2, y, k, s, n, inv_temp1);
+  double ll_11 = marginal_loglikelihood(pi1, A1, B1, y, k, s, n, inv_temp1);
+  double ll_22 = marginal_loglikelihood(pi2, A2, B2, y, k, s, n, inv_temp2);
+  double ratio = exp(ll_12 + ll_21 - ll_11 - ll_22);
   return ratio;
 }
+
+// double MH_acceptance_prob_swap_pars(double marginal_loglik1, double marginal_loglik2, double inv_temp1, double inv_temp2){
+//   double ratio = exp(-(inv_temp1 - inv_temp2)*(marginal_loglik1 - marginal_loglik2));
+//   return ratio;
+// }
 
 double MH_acceptance_prob_swap_x(IntegerVector& y, 
                                  arma::ivec& x1, NumericVector& pi1, NumericMatrix& A1, NumericMatrix& B1, 
@@ -378,7 +423,7 @@ void scale_marginal_distr(NumericMatrix marginal_distr_res, int k, int n, int ma
 List ensemble(int n_chains, IntegerVector y, double alpha, int k, int s, int n, 
               int max_iter, int burnin, int thin, 
               bool estimate_marginals, bool is_fixed_B, bool parallel_tempering, bool crossovers, 
-              NumericVector temperatures, int swap_type, int swaps_burnin, NumericMatrix B, IntegerVector which_chains){
+              NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericMatrix B, IntegerVector which_chains){
 
   // initialise ensemble of n_chains
   Ensemble ensemble(n_chains, k, s, n, alpha, is_fixed_B);
@@ -411,10 +456,10 @@ List ensemble(int n_chains, IntegerVector y, double alpha, int k, int s, int n,
   for(int iter = 1; iter <= max_iter; iter++){
     ensemble.update_chains(y, P, Q, estimate_marginals && (iter > burnin));
 
-    if(crossovers && (iter > swaps_burnin)){
-      ensemble.do_crossover();
+    if(crossovers && (iter > swaps_burnin) && (iter % swaps_freq == 0)){
+      ensemble.do_crossovers(n_crossovers);
     }
-    if(parallel_tempering && (iter > swaps_burnin)){
+    if(parallel_tempering && (iter > swaps_burnin) && (iter % swaps_freq == 0)){
       if(swap_type == 0) ensemble.swap_everything(y);
       if(swap_type == 1) ensemble.swap_pars(y);
       if(swap_type == 2) ensemble.swap_x(y);

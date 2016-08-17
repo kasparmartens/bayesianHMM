@@ -21,21 +21,39 @@ Chain::Chain(int K, int S, int N, double alpha_, bool is_fixed_B_){
 }
 
 void Chain::initialise_transition_matrices(){
-  initialise_const_vec(pi, 1.0/k, k);
-  if(!is_fixed_B) initialise_const_mat(B, 1.0/s, k, s);
-  // initialise A
-  initialise_const_mat(A, 0.5*1.0/k, k, k);
-  for(int i=0; i<k; i++)
-    A(i, i) += 0.5;
+  // draw pi from the prior
+  NumericVector pi_pars(k);
+  initialise_const_vec(pi_pars, alpha, k);
+  rdirichlet_vec(pi_pars, pi, k);
+  // draw A from the prior
+  transition_mat_update1(A, x, alpha, k, 0);
+  // draw B from the prior
+  if(!is_fixed_B)
+    transition_mat_update2(B, x, IntegerVector(1), alpha, k, s, 0);
+//   initialise_const_vec(pi, 1.0/k, k);
+//   if(!is_fixed_B) initialise_const_mat(B, 1.0/s, k, s);
+//   // initialise A
+//   initialise_const_mat(A, 0.5*1.0/k, k, k);
+//   for(int i=0; i<k; i++)
+//     A(i, i) += 0.5;
 }
 
 void Chain::initialise_transition_matrices(NumericMatrix B0){
-  initialise_const_vec(pi, 1.0/k, k);
+  // draw pi from the prior
+  NumericVector pi_pars(k);
+  initialise_const_vec(pi_pars, alpha, k);
+  rdirichlet_vec(pi_pars, pi, k);
+  // draw A from the prior
+  transition_mat_update1(A, x, alpha, k, 0);
+  // B is fixed
   if(is_fixed_B) B = clone(B0);
-  // initialise A
-  initialise_const_mat(A, 0.5*1.0/k, k, k);
-  for(int i=0; i<k; i++)
-    A(i, i) += 0.5;
+//   initialise_const_vec(pi, 1.0/k, k);
+//   // initialise A
+//   initialise_const_mat(A, 0.5*1.0/k, k, k);
+//   for(int i=0; i<k; i++)
+//     A(i, i) += 0.5;
+//   // initialise B
+//   if(is_fixed_B) B = clone(B0);
 }
 
 void Chain::update_B_tempered(){
@@ -84,6 +102,10 @@ void Chain::update_pars(IntegerVector& y){
       transition_mat_update3(B, x, y, alpha, k, s, n, inv_temperature);
     }
   }
+}
+
+double Chain::calculate_loglik_marginal(IntegerVector& y){
+  return marginal_loglikelihood(pi, A, B, y, k, s, n, 1.0);
 }
 
 void Chain::copy_values_to_trace(List& trace_x, List& trace_pi, List& trace_A, List& trace_B, List& log_posterior, List& log_posterior_cond, List& trace_switching_prob, int index){
