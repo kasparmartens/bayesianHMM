@@ -486,3 +486,22 @@ List ensemble(int n_chains, IntegerVector y, double alpha, int k, int s, int n,
                       Rcpp::Named("acceptance_ratio") = ensemble.get_acceptance_ratio());
 
 }
+
+//' @export
+// [[Rcpp::export]]
+IntegerMatrix hamming_distance(NumericMatrix X, int n, int m){
+  IntegerMatrix dist(n, n);
+  int temp;
+  for(int j=0; j<(n-1); j++){
+    for(int i=j+1; i<n; i++){
+      temp = 0;
+      for(int t=0; t<m; t++){
+        if(X(i, t) != X(j, t)){
+          temp += 1;
+        }
+      }
+      dist(i, j) = temp;
+    }
+  }
+  return dist;
+}
