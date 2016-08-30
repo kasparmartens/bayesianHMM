@@ -2,7 +2,7 @@
 
 using namespace Rcpp;
 
-Ensemble::Ensemble(int n_chains_, int k_, int s_, int n_, double alpha, bool is_fixed_B) : 
+Ensemble::Ensemble(int n_chains_, int k_, int s_, int n_, double alpha, bool is_fixed_B, bool is_discrete, bool is_gaussian) : 
   chains(std::vector<Chain>()) {
   do_parallel_tempering = false;
   n_chains = n_chains_;
@@ -12,7 +12,7 @@ Ensemble::Ensemble(int n_chains_, int k_, int s_, int n_, double alpha, bool is_
   n_accepts = 0;
   n_total = 0;
   for(int i=0; i<n_chains; i++){
-    chains.push_back(Chain(k_, s_, n_, alpha, is_fixed_B));
+    chains.push_back(Chain(k_, s_, n_, alpha, is_fixed_B, is_discrete, is_gaussian));
   }
 }
 
@@ -20,27 +20,25 @@ void Ensemble::activate_parallel_tempering(NumericVector temperatures){
   do_parallel_tempering = true;
   for(int i=0; i<n_chains; i++){
     chains[i].set_temperature(temperatures[i]);
-    chains[i].update_B_tempered();
   }
 }
 
-void Ensemble::initialise_transition_matrices(){
+void Ensemble::initialise_pars(){
   for(int i=0; i<n_chains; i++){
-    chains[i].initialise_transition_matrices();
+    chains[i].initialise_pars();
   }
 }
 
-void Ensemble::initialise_transition_matrices(NumericMatrix B){
+void Ensemble::initialise_pars(NumericMatrix B){
   for(int i=0; i<n_chains; i++){
-    chains[i].initialise_transition_matrices(B);
+    chains[i].initialise_pars(B);
   }
 }
 
-void Ensemble::update_chains(IntegerVector& y, ListOf<NumericMatrix>& P, ListOf<NumericMatrix>& Q, bool estimate_marginals){
+void Ensemble::update_chains(NumericVector& y, ListOf<NumericMatrix>& P, ListOf<NumericMatrix>& Q, bool estimate_marginals){
   for(int i=0; i<n_chains; i++){
     chains[i].FB_step(y, P, Q, estimate_marginals);
     chains[i].update_pars(y);
-    if(do_parallel_tempering) chains[i].update_B_tempered();
   }
 }
 
@@ -63,11 +61,11 @@ void Ensemble::do_crossovers(int n_crossovers){
   }
 }
 
-void Ensemble::swap_everything(IntegerVector& y){
+void Ensemble::swap_everything(){
   // pick chains j and j+1, and propose to swap parameters
   int j = as<int>(sample_helper(n_chains-1, 1)) - 1;
-  double accept_prob = MH_acceptance_prob_swap_everything(y, chains[j].get_x(), chains[j].get_B(), 
-                                                    chains[j+1].get_x(), chains[j+1].get_B(), 
+  double accept_prob = MH_acceptance_prob_swap_everything(chains[j].get_x(), chains[j].get_emission_probs_tempered(), 
+                                                    chains[j+1].get_x(), chains[j+1].get_emission_probs_tempered(), 
                                                     chains[j].get_inv_temperature(), chains[j+1].get_inv_temperature(), n);
   if(R::runif(0,1) < accept_prob){
     std::swap(chains[j].get_B(), chains[j+1].get_B());
@@ -75,21 +73,15 @@ void Ensemble::swap_everything(IntegerVector& y){
     std::swap(chains[j].get_pi(), chains[j+1].get_pi());
     std::swap(chains[j].get_x(), chains[j+1].get_x());
     n_accepts += 1;
-    
-    // update B_tempered
-    for(int i=0; i<n_chains; i++){
-      chains[i].update_B_tempered();
-    }
   }
   n_total += 1;
 }
 
-void Ensemble::swap_pars(IntegerVector& y){
+void Ensemble::swap_pars(){
   // pick chains j and j+1, and propose to swap parameters
   int j = as<int>(sample_helper(n_chains-1, 1)) - 1;
-  //double accept_prob = MH_acceptance_prob_swap_pars(chains[j].calculate_loglik_marginal(y), chains[j+1].calculate_loglik_marginal(y), chains[j].get_inv_temperature(), chains[j+1].get_inv_temperature());
-  double accept_prob = MH_acceptance_prob_swap_pars(y, chains[j].get_pi(), chains[j].get_A(), chains[j].get_B(), 
-                                                    chains[j+1].get_pi(), chains[j+1].get_A(), chains[j+1].get_B(), 
+  double accept_prob = MH_acceptance_prob_swap_pars(chains[j].get_pi(), chains[j].get_A(), chains[j].get_emission_probs(), 
+                                                    chains[j+1].get_pi(), chains[j+1].get_A(), chains[j+1].get_emission_probs(), 
                                                     chains[j].get_inv_temperature(), chains[j+1].get_inv_temperature(), k, s, n);
   if(R::runif(0,1) < accept_prob){
     std::swap(chains[j].get_B(), chains[j+1].get_B());
@@ -97,28 +89,19 @@ void Ensemble::swap_pars(IntegerVector& y){
     std::swap(chains[j].get_pi(), chains[j+1].get_pi());
     n_accepts += 1;
     
-    // update B_tempered
-    for(int i=0; i<n_chains; i++){
-      chains[i].update_B_tempered();
-    }
   }
   n_total += 1;
 }
 
-void Ensemble::swap_x(IntegerVector& y){
+void Ensemble::swap_x(){
   // pick chains j and j+1, and propose to swap parameters
   int j = as<int>(sample_helper(n_chains-1, 1)) - 1;
-  double accept_prob = MH_acceptance_prob_swap_x(y, chains[j].get_x(), chains[j].get_pi(), chains[j].get_A(), chains[j].get_B(), 
-                                                 chains[j+1].get_x(), chains[j+1].get_pi(), chains[j+1].get_A(), chains[j+1].get_B(), 
-                                                 chains[j].get_inv_temperature(), chains[j+1].get_inv_temperature(), n);
+  double accept_prob = MH_acceptance_prob_swap_x(chains[j].get_x(), chains[j].get_pi(), chains[j].get_A(), chains[j].get_emission_probs_tempered(), 
+                                                 chains[j+1].get_x(), chains[j+1].get_pi(), chains[j+1].get_A(), chains[j+1].get_emission_probs_tempered(), 
+                                                 n);
   if(R::runif(0,1) < accept_prob){
     std::swap(chains[j].get_x(), chains[j+1].get_x());
     n_accepts += 1;
-    
-    // update B_tempered
-    for(int i=0; i<n_chains; i++){
-      chains[i].update_B_tempered();
-    }
   }
   n_total += 1;
 }

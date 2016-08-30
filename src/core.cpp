@@ -35,6 +35,27 @@ void compute_Q(NumericMatrix QQ, NumericMatrix PP, NumericVector pi_backward, Nu
   }
 }
 
+void update_mu(NumericVector mu, NumericVector sigma, IntegerVector n_k, NumericVector cluster_sums, double rho, double inv_temp, int k){
+  double s2, var, mean;
+  for(int i=0; i<k; i++){
+    s2 = sigma[i] * sigma[i];
+    var = 1.0 / (rho + inv_temp * n_k[i] / s2);
+    mean = inv_temp * var / s2 * cluster_sums[i];
+    mu[i] = R::rnorm(mean, sqrt(var));
+  }
+}
+
+void update_pars_gaussian(NumericVector& y, arma::ivec& x, NumericVector& mu, NumericVector& sigma, double rho, double inv_temp, int k, int n){
+  IntegerVector n_k(k);
+  NumericVector cluster_sums(k);
+  int index;
+  for(int t=0; t<n; t++){
+    index = x[t]-1;
+    n_k[index] += 1;
+    cluster_sums[index] += y[t];
+  }
+  update_mu(mu, sigma, n_k, cluster_sums, rho, inv_temp, k);
+}
 
 void update_marginal_distr(ListOf<NumericMatrix> Q, NumericMatrix res, int k, int n){
   arma::mat out(res.begin(), k, n, false);
@@ -53,17 +74,52 @@ void update_marginal_distr(ListOf<NumericMatrix> Q, NumericMatrix res, int k, in
 }
 
 
-void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, ListOf<NumericMatrix>& P, double& loglik, int k, int n){
+void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix emission_probs, ListOf<NumericMatrix>& P, double& loglik, int k, int n){
   NumericVector b, colsums(k);
-  b = B(_, y[0]-1);
+  b = emission_probs(_, 0);
   compute_P0(P[0], loglik, pi, b, k);
   loglik = 0.0;
   for(int t=1; t<n; t++){
     colsums = calculate_colsums(P[t-1], k, k);
-    b = B(_, y[t]-1);
+    b = emission_probs(_, t);
     compute_P(P[t], loglik, colsums, A, b, k);
   }
 }
+
+NumericMatrix emission_probs_mat_gaussian(NumericVector y, NumericVector mu, NumericVector sigma, int k, int n){
+  NumericMatrix out(k, n);
+  for(int t=0; t<n; t++){
+    for(int i=0; i<k; i++){
+      out(i, t) = R::dnorm4(y[t], mu[i], sigma[i], false);
+    }
+  }
+  return out;
+}
+
+NumericMatrix emission_probs_mat_discrete(IntegerVector y, NumericMatrix B, int k, int n){
+  NumericMatrix out(k, n);
+  for(int t=0; t<n; t++){
+    out(_, t) = B(_, y[t]-1);
+  }
+  return out;
+}
+
+NumericMatrix temper_emission_probs(NumericMatrix mat, double inv_temperature, int k, int n){
+  NumericMatrix out(k, n);
+  for(int t=0; t<n; t++){
+    for(int i=0; i<k; i++){
+      out(i, t) = pow(mat(i, t), inv_temperature);
+    }
+  }
+  return out;
+}
+
+// NumericVector gaussian_emission_probs(double y, NumericVector mu, NumericVector sigma, int k){
+//   NumericVector out(k);
+//   for(int i=0; i<k; i++)
+//     out[i] = R::dnorm4(y, mu[i], sigma[i], false);
+//   return out;
+// }
 
 void backward_sampling(arma::ivec& x, ListOf<NumericMatrix>& P, IntegerVector possible_values, int k, int n){
   NumericVector prob(k);
@@ -152,13 +208,21 @@ void transition_mat_update3(NumericMatrix B, const arma::ivec & x, IntegerVector
   rdirichlet_mat(B_pars, B, k, s);
 }
 
-double loglikelihood(IntegerVector& y, arma::ivec& x, NumericMatrix& B, int n){
+double loglikelihood(arma::ivec& x, NumericMatrix& emission_probs, int n){
   double loglik = 0.0;
   for(int t=0; t<n; t++){
-    loglik += log(B(x[t]-1, y[t]-1));
+    loglik += log(emission_probs(x[t]-1, t));
   }
   return loglik;
 }
+
+// double loglikelihood(IntegerVector& y, arma::ivec& x, NumericMatrix& B, int n){
+//   double loglik = 0.0;
+//   for(int t=0; t<n; t++){
+//     loglik += log(B(x[t]-1, y[t]-1));
+//   }
+//   return loglik;
+// }
 
 double loglikelihood_x(arma::ivec& x, NumericVector&pi, NumericMatrix& A, int n){
   double loglik = pi[x[0]-1];
@@ -168,34 +232,23 @@ double loglikelihood_x(arma::ivec& x, NumericVector&pi, NumericMatrix& A, int n)
   return loglik;
 }
 
-double marginal_loglikelihood(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, int k, int s, int n, double inv_temp){
-  // temper B
-  NumericMatrix B_tempered(k, s);
-  for(int j=0; j<s; j++){
-    for(int i=0; i<k; i++){
-      B_tempered(i, j) = pow(B(i, j), inv_temp);
-    }
-  }
-  
+double marginal_loglikelihood(NumericVector pi, NumericMatrix A, NumericMatrix emission_probs, double inv_temp, int k, int s, int n){
   double loglik = 0.0;
   NumericMatrix PP(k, k);
-  NumericVector b, colsums(k);
-  b = B_tempered(_, y[0]-1);
+  NumericVector b;
   
-  for(int s=0; s<k; s++){
-    for(int r=0; r<k; r++){
-      PP(r, s) = pi[r] * b[s];
-    }
-  }
-  loglik += log(normalise_mat(PP, k, k));
-  
-  for(int t=1; t<n; t++){
-    colsums = calculate_colsums(PP, k, k);
-    b = B_tempered(_, y[t]-1);
-    
+  NumericMatrix emission_probs_tempered = temper_emission_probs(emission_probs, inv_temp, k, n);
+
+  for(int t=0; t<n; t++){
+    b = emission_probs_tempered(_, t);
     for(int s=0; s<k; s++){
       for(int r=0; r<k; r++){
-        PP(r, s) = pi[r] * A(r, s) * b[s];
+        if(t==0){
+          PP(r, s) = pi[r] * b[s];
+        } 
+        else{
+          PP(r, s) = pi[r] * A(r, s) * b[s];
+        }
       }
     }
     loglik += log(normalise_mat(PP, k, k));
@@ -203,22 +256,22 @@ double marginal_loglikelihood(NumericVector pi, NumericMatrix A, NumericMatrix B
   return loglik;
 }
 
-double MH_acceptance_prob_swap_everything(IntegerVector& y, arma::ivec& x1, NumericMatrix& B1, arma::ivec& x2, NumericMatrix& B2, 
+double MH_acceptance_prob_swap_everything(arma::ivec& x1, NumericMatrix& emission_probs1, arma::ivec& x2, NumericMatrix& emission_probs2, 
                                      double inv_temp1, double inv_temp2, int n){
-  double loglik1 = loglikelihood(y, x1, B1, n);
-  double loglik2 = loglikelihood(y, x2, B2, n);
+  // here, emission_probs are already tempered. Need to "untemper" first
+  double loglik1 = 1.0/inv_temp1 * loglikelihood(x1, emission_probs1, n);
+  double loglik2 = 1.0/inv_temp2 * loglikelihood(x2, emission_probs2, n);
   double ratio = exp(-(inv_temp1 - inv_temp2)*(loglik1 - loglik2));
   return ratio;
 }
 
-double MH_acceptance_prob_swap_pars(IntegerVector& y, 
-                                    NumericVector& pi1, NumericMatrix& A1, NumericMatrix& B1, 
-                                    NumericVector& pi2, NumericMatrix& A2, NumericMatrix& B2, 
+double MH_acceptance_prob_swap_pars(NumericVector& pi1, NumericMatrix& A1, NumericMatrix& emission_probs1, 
+                                    NumericVector& pi2, NumericMatrix& A2, NumericMatrix& emission_probs2, 
                                     double inv_temp1, double inv_temp2, int k, int s, int n){
-  double ll_12 = marginal_loglikelihood(pi1, A1, B1, y, k, s, n, inv_temp2);
-  double ll_21 = marginal_loglikelihood(pi2, A2, B2, y, k, s, n, inv_temp1);
-  double ll_11 = marginal_loglikelihood(pi1, A1, B1, y, k, s, n, inv_temp1);
-  double ll_22 = marginal_loglikelihood(pi2, A2, B2, y, k, s, n, inv_temp2);
+  double ll_12 = marginal_loglikelihood(pi1, A1, emission_probs1, inv_temp2, k, s, n);
+  double ll_21 = marginal_loglikelihood(pi2, A2, emission_probs2, inv_temp1, k, s, n);
+  double ll_11 = marginal_loglikelihood(pi1, A1, emission_probs1, inv_temp1, k, s, n);
+  double ll_22 = marginal_loglikelihood(pi2, A2, emission_probs2, inv_temp2, k, s, n);
   double ratio = exp(ll_12 + ll_21 - ll_11 - ll_22);
   return ratio;
 }
@@ -228,12 +281,11 @@ double MH_acceptance_prob_swap_pars(IntegerVector& y,
 //   return ratio;
 // }
 
-double MH_acceptance_prob_swap_x(IntegerVector& y, 
-                                 arma::ivec& x1, NumericVector& pi1, NumericMatrix& A1, NumericMatrix& B1, 
-                                 arma::ivec& x2, NumericVector& pi2, NumericMatrix& A2, NumericMatrix& B2, 
-                                 double inv_temp1, double inv_temp2, int n){
+double MH_acceptance_prob_swap_x(arma::ivec& x1, NumericVector& pi1, NumericMatrix& A1, NumericMatrix& emission_probs1, 
+                                 arma::ivec& x2, NumericVector& pi2, NumericMatrix& A2, NumericMatrix& emission_probs2, 
+                                 int n){
   double logratio_x = loglikelihood_x(x1, pi2, A2, n) + loglikelihood_x(x2, pi1, A1, n) - loglikelihood_x(x1, pi1, A1, n) - loglikelihood_x(x2, pi2, A2, n);
-  double logratio_y = inv_temp2 * loglikelihood(y, x1, B2, n) + inv_temp1 * loglikelihood(y, x2, B1, n) - inv_temp2 * loglikelihood(y, x2, B2, n) - inv_temp1 * loglikelihood(y, x1, B1, n);
+  double logratio_y = loglikelihood(x1, emission_probs2, n) + loglikelihood(x2, emission_probs1, n) - loglikelihood(x2, emission_probs2, n) - loglikelihood(x1, emission_probs1, n);
   double ratio = exp(logratio_x + logratio_y);
   return ratio;
 }
@@ -258,7 +310,8 @@ List forward_backward_fast(NumericVector pi, NumericMatrix A, NumericMatrix B, I
   ListOf<NumericMatrix> P(PP), Q(QQ);
   double loglik=0.0;
 
-  forward_step(pi, A, B, y, P, loglik, k, n);
+  NumericMatrix emission_probs = emission_probs_mat_discrete(y, B, k, n);
+  forward_step(pi, A, emission_probs, P, loglik, k, n);
   // now backward sampling
   arma::ivec x(n);
   IntegerVector possible_values = seq_len(k);
@@ -306,10 +359,12 @@ List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0,
   IntegerVector possible_values = seq_len(k);
   NumericVector switching_prob(n-1);
   NumericMatrix marginal_distr_res(k, n);
+  NumericMatrix emission_probs(k, n);
 
   for(int iter = 1; iter <= max_iter; iter++){
     // forward step
-    forward_step(pi, A, B, y, P, loglik, k, n);
+    emission_probs = emission_probs_mat_discrete(y, B, k, n);
+    forward_step(pi, A, emission_probs, P, loglik, k, n);
     // now backward sampling and nonstochastic backward step
     backward_sampling(x, P, possible_values, k, n);
     if(marginal_distr){
@@ -420,19 +475,19 @@ void scale_marginal_distr(NumericMatrix marginal_distr_res, int k, int n, int ma
 
 //' @export
 // [[Rcpp::export]]
-List ensemble(int n_chains, IntegerVector y, double alpha, int k, int s, int n, 
+List ensemble(int n_chains, NumericVector y, double alpha, int k, int s, int n, 
               int max_iter, int burnin, int thin, 
               bool estimate_marginals, bool is_fixed_B, bool parallel_tempering, bool crossovers, 
               NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericMatrix B, IntegerVector which_chains){
 
   // initialise ensemble of n_chains
-  Ensemble ensemble(n_chains, k, s, n, alpha, is_fixed_B);
+  Ensemble ensemble(n_chains, k, s, n, alpha, is_fixed_B, false, true);
   
   // initialise transition matrices for all chains in the ensemble
   if(is_fixed_B){
-    ensemble.initialise_transition_matrices(B);
+    ensemble.initialise_pars(B);
   } else{
-    ensemble.initialise_transition_matrices();
+    ensemble.initialise_pars();
   }
   
   // parallel tempering initilisation
@@ -460,9 +515,9 @@ List ensemble(int n_chains, IntegerVector y, double alpha, int k, int s, int n,
       ensemble.do_crossovers(n_crossovers);
     }
     if(parallel_tempering && (iter > swaps_burnin) && (iter % swaps_freq == 0)){
-      if(swap_type == 0) ensemble.swap_everything(y);
-      if(swap_type == 1) ensemble.swap_pars(y);
-      if(swap_type == 2) ensemble.swap_x(y);
+      if(swap_type == 0) ensemble.swap_everything();
+      if(swap_type == 1) ensemble.swap_pars();
+      if(swap_type == 2) ensemble.swap_x();
     }
     
     if((iter > burnin) && ((iter-1) % thin == 0)){

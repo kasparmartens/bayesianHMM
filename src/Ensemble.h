@@ -12,7 +12,7 @@ class Ensemble{
   int n_accepts, n_total;
   
 public:
-  Ensemble(int K, int k, int s, int n, double alpha, bool is_fixed_B);
+  Ensemble(int K, int k, int s, int n, double alpha, bool is_fixed_B, bool is_discrete, bool is_gaussian);
   
   void activate_parallel_tempering(NumericVector temperatures);
   
@@ -21,11 +21,11 @@ public:
     return ratio;
   }
   
-  void initialise_transition_matrices();
+  void initialise_pars();
   
-  void initialise_transition_matrices(NumericMatrix B);
+  void initialise_pars(NumericMatrix B);
   
-  void update_chains(IntegerVector& y, ListOf<NumericMatrix>& P, ListOf<NumericMatrix>& Q, bool estimate_marginals);
+  void update_chains(NumericVector& y, ListOf<NumericMatrix>& P, ListOf<NumericMatrix>& Q, bool estimate_marginals);
   
   void scale_marginals(int max_iter, int burnin);
   
@@ -33,11 +33,11 @@ public:
   
   void do_crossovers(int n_crossovers);
   
-  void swap_everything(IntegerVector& y);
+  void swap_everything();
   
-  void swap_pars(IntegerVector& y);
+  void swap_pars();
   
-  void swap_x(IntegerVector& y);
+  void swap_x();
   
   void copy_values_to_trace(IntegerVector& which_chains, List& trace_x, List& trace_pi, List& trace_A, List& trace_B, List& log_posterior, List& log_posterior_cond, List& trace_switching_prob, int index);
   

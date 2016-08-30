@@ -23,7 +23,7 @@ void initialise_const_vec(NumericVector pi, double alpha, int length);
 
 void initialise_const_mat(NumericMatrix A, double alpha, int nrow, int ncol);
 
-void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, ListOf<NumericMatrix>& P, double& loglik, int k, int n);
+void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix emission_probs, ListOf<NumericMatrix>& P, double& loglik, int k, int n);
 
 void backward_sampling(arma::ivec& x, ListOf<NumericMatrix>& P, IntegerVector possible_values, int k, int n);
 
@@ -51,22 +51,27 @@ IntegerVector sample_helper(int n_chains, int n);
 
 void transition_mat_update3(NumericMatrix B, const arma::ivec & x, IntegerVector y, double alpha, int k, int s, int n, double inv_temperature);
 
-double loglikelihood(IntegerVector& y, arma::ivec& x, NumericMatrix& B, int n);
+double loglikelihood(arma::ivec& x, NumericMatrix& B, int n);
 
 double loglikelihood_x(arma::ivec& x, NumericVector&pi, NumericMatrix& A, int n);
 
-double marginal_loglikelihood(NumericVector pi, NumericMatrix A, NumericMatrix B, IntegerVector y, int k, int s, int n, double inv_temp);
-
-double MH_acceptance_prob_swap_everything(IntegerVector& y, arma::ivec& x1, NumericMatrix& B1, arma::ivec& x2, NumericMatrix& B2, 
+double marginal_loglikelihood(NumericVector pi, NumericMatrix A, NumericMatrix emission_probs, double inv_temp, int k, int s, int n);
+double MH_acceptance_prob_swap_everything(arma::ivec& x1, NumericMatrix& emission_probs1, arma::ivec& x2, NumericMatrix& emission_probs2, 
                                           double inv_temp1, double inv_temp2, int n);
 
 //double MH_acceptance_prob_swap_pars(double marginal_loglik1, double marginal_loglik2, double inv_temp1, double inv_temp2);
-double MH_acceptance_prob_swap_pars(IntegerVector& y, 
-                                    NumericVector& pi1, NumericMatrix& A1, NumericMatrix& B1, 
-                                    NumericVector& pi2, NumericMatrix& A2, NumericMatrix& B2, 
+double MH_acceptance_prob_swap_pars(NumericVector& pi1, NumericMatrix& A1, NumericMatrix& emission_probs1, 
+                                    NumericVector& pi2, NumericMatrix& A2, NumericMatrix& emission_probs2, 
                                     double inv_temp1, double inv_temp2, int k, int s, int n);
 
-double MH_acceptance_prob_swap_x(IntegerVector& y, 
-                                 arma::ivec& x1, NumericVector& pi1, NumericMatrix& A1, NumericMatrix& B1, 
-                                 arma::ivec& x2, NumericVector& pi2, NumericMatrix& A2, NumericMatrix& B2, 
-                                 double inv_temp1, double inv_temp2, int n);
+double MH_acceptance_prob_swap_x(arma::ivec& x1, NumericVector& pi1, NumericMatrix& A1, NumericMatrix& emission_probs1, 
+                                 arma::ivec& x2, NumericVector& pi2, NumericMatrix& A2, NumericMatrix& emission_probs2, 
+                                 int n);
+
+NumericMatrix emission_probs_mat_discrete(IntegerVector y, NumericMatrix B, int k, int n);
+
+NumericMatrix emission_probs_mat_gaussian(NumericVector y, NumericVector mu, NumericVector sigma, int k, int n);
+
+NumericMatrix temper_emission_probs(NumericMatrix mat, double inv_temperature, int k, int n);
+
+void update_pars_gaussian(NumericVector& y, arma::ivec& x, NumericVector& mu, NumericVector& sigma, double rho, double inv_temp, int k, int n);
