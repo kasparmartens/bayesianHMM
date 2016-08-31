@@ -74,4 +74,4 @@ NumericMatrix emission_probs_mat_gaussian(NumericVector y, NumericVector mu, Num
 
 NumericMatrix temper_emission_probs(NumericMatrix mat, double inv_temperature, int k, int n);
 
-void update_pars_gaussian(NumericVector& y, arma::ivec& x, NumericVector& mu, NumericVector& sigma, double rho, double inv_temp, int k, int n);
+void update_pars_gaussian(NumericVector& y, arma::ivec& x, NumericVector& mu, NumericVector& sigma2, double rho, double inv_temp, double a0, double b0, int k, int n);

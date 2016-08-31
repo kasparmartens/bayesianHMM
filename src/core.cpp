@@ -1,6 +1,6 @@
 // [[Rcpp::depends(RcppArmadillo)]]
 
-#include "Ensemble.h"
+#include "Ensemble_Gaussian.h"
 #include <RcppArmadilloExtensions/sample.h>
 using namespace Rcpp;
 using namespace std;
@@ -35,26 +35,48 @@ void compute_Q(NumericMatrix QQ, NumericMatrix PP, NumericVector pi_backward, Nu
   }
 }
 
-void update_mu(NumericVector mu, NumericVector sigma, IntegerVector n_k, NumericVector cluster_sums, double rho, double inv_temp, int k){
-  double s2, var, mean;
+void update_mu(NumericVector mu, NumericVector sigma2, NumericVector n_k, NumericVector cluster_sums, double rho, double inv_temp, int k){
+  double var, mean;
   for(int i=0; i<k; i++){
-    s2 = sigma[i] * sigma[i];
-    var = 1.0 / (rho + inv_temp * n_k[i] / s2);
-    mean = inv_temp * var / s2 * cluster_sums[i];
+    var = 1.0 / (rho + inv_temp * n_k[i] / sigma2[i]);
+    mean = inv_temp * var / sigma2[i] * cluster_sums[i];
     mu[i] = R::rnorm(mean, sqrt(var));
   }
 }
 
-void update_pars_gaussian(NumericVector& y, arma::ivec& x, NumericVector& mu, NumericVector& sigma, double rho, double inv_temp, int k, int n){
-  IntegerVector n_k(k);
-  NumericVector cluster_sums(k);
+void update_sigma(NumericVector sigma2, NumericVector n_k, NumericVector ss, double a0, double b0, double inv_temp, int k){
+  double sigma2inv, a, b;
+  for(int i=0; i<k; i++){
+    a = a0 + 0.5 * inv_temp * n_k[i];
+    b = b0 + 0.5 * inv_temp * ss[i];
+    sigma2inv = R::rgamma(a, 1.0 / b);
+    sigma2[i] = 1.0 / sigma2inv;
+  }
+}
+
+void update_pars_gaussian(NumericVector& y, arma::ivec& x, NumericVector& mu, NumericVector& sigma2, double rho, double inv_temp, double a0, double b0, int k, int n){
+  NumericVector n_k(k), cluster_sums(k), cluster_means(k);
   int index;
+  // the number of elements in each component and their sums
   for(int t=0; t<n; t++){
     index = x[t]-1;
     n_k[index] += 1;
     cluster_sums[index] += y[t];
   }
-  update_mu(mu, sigma, n_k, cluster_sums, rho, inv_temp, k);
+  // mean for each component
+  for(int i=0; i<k; i++){
+    cluster_means[i] = cluster_sums[i] / n_k[i];
+  }
+  // sum of squares for each component
+  NumericVector ss(k);
+  for(int t=0; t<n; t++){
+    index = x[t] - 1;
+    ss[index] += pow(y[t] - cluster_means[index], 2);
+  }
+  // draw mu from its posterior
+  update_mu(mu, sigma2, n_k, cluster_sums, rho, inv_temp, k);
+  // draw sigma from its posterior
+  update_sigma(sigma2, n_k, ss, a0, b0, inv_temp, k);
 }
 
 void update_marginal_distr(ListOf<NumericMatrix> Q, NumericMatrix res, int k, int n){
@@ -86,11 +108,11 @@ void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix emission_prob
   }
 }
 
-NumericMatrix emission_probs_mat_gaussian(NumericVector y, NumericVector mu, NumericVector sigma, int k, int n){
+NumericMatrix emission_probs_mat_gaussian(NumericVector y, NumericVector mu, NumericVector sigma2, int k, int n){
   NumericMatrix out(k, n);
   for(int t=0; t<n; t++){
     for(int i=0; i<k; i++){
-      out(i, t) = R::dnorm4(y[t], mu[i], sigma[i], false);
+      out(i, t) = R::dnorm4(y[t], mu[i], sqrt(sigma2[i]), false);
     }
   }
   return out;
@@ -481,7 +503,7 @@ List ensemble(int n_chains, NumericVector y, double alpha, int k, int s, int n,
               NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericMatrix B, IntegerVector which_chains){
 
   // initialise ensemble of n_chains
-  Ensemble ensemble(n_chains, k, s, n, alpha, is_fixed_B, false, true);
+  Ensemble_Gaussian ensemble(n_chains, k, s, n, alpha, is_fixed_B);
   
   // initialise transition matrices for all chains in the ensemble
   if(is_fixed_B){
@@ -495,21 +517,14 @@ List ensemble(int n_chains, NumericVector y, double alpha, int k, int s, int n,
     ensemble.activate_parallel_tempering(temperatures);
   }
 
-  List PP(n), QQ(n);
-  for(int t=0; t<n; t++){
-    PP[t] = NumericMatrix(k, k);
-    QQ[t] = NumericMatrix(k, k);
-  }
-  ListOf<NumericMatrix> P(PP), Q(QQ);
-
   int index;
   int n_chains_out = which_chains.size();
   int trace_length = (max_iter - burnin + (thin - 1)) / thin;
   int list_length = n_chains_out * trace_length;
-  List tr_x(list_length), tr_pi(list_length), tr_A(list_length), tr_B(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length);
+  List tr_x(list_length), tr_pi(list_length), tr_A(list_length), tr_mu(list_length), tr_sigma2(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length);
 
   for(int iter = 1; iter <= max_iter; iter++){
-    ensemble.update_chains(y, P, Q, estimate_marginals && (iter > burnin));
+    ensemble.update_chains(y, estimate_marginals && (iter > burnin));
 
     if(crossovers && (iter > swaps_burnin) && (iter % swaps_freq == 0)){
       ensemble.do_crossovers(n_crossovers);
@@ -522,7 +537,7 @@ List ensemble(int n_chains, NumericVector y, double alpha, int k, int s, int n,
     
     if((iter > burnin) && ((iter-1) % thin == 0)){
       index = (iter - burnin - 1)/thin;
-      ensemble.copy_values_to_trace(which_chains, tr_x, tr_pi, tr_A, tr_B, tr_loglik, tr_loglik_cond, tr_switching_prob, index);
+      ensemble.copy_values_to_trace(which_chains, tr_x, tr_pi, tr_A, tr_mu, tr_sigma2, tr_loglik, tr_loglik_cond, tr_switching_prob, index);
     }
     if(iter % 1000 == 0) printf("iter %d\n", iter);
   }
@@ -533,7 +548,8 @@ List ensemble(int n_chains, NumericVector y, double alpha, int k, int s, int n,
   return List::create(Rcpp::Named("trace_x") = tr_x,
                       Rcpp::Named("trace_pi") = tr_pi,
                       Rcpp::Named("trace_A") = tr_A,
-                      Rcpp::Named("trace_B") = tr_B,
+                      Rcpp::Named("trace_mu") = tr_mu,
+                      Rcpp::Named("trace_sigma2") = tr_sigma2,
                       Rcpp::Named("log_posterior") = tr_loglik,
                       Rcpp::Named("log_posterior_cond") = tr_loglik_cond,
                       Rcpp::Named("switching_prob") = tr_switching_prob,
