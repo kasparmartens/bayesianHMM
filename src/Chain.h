@@ -16,13 +16,6 @@ class Chain {
     IntegerVector possible_values;
     ListOf<NumericMatrix> P, Q;
     
-    // for discrete HMMs only
-    bool is_discrete;
-    NumericMatrix B;
-    // for Gaussian HMMs only
-    bool is_gaussian;
-    NumericVector mu, sigma2;
-    
   public:
     Chain(int K, int S, int N, double alpha_, bool is_fixed_B_, bool is_discrete_, bool is_gaussian_);
     

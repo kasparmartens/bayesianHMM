@@ -1,5 +1,5 @@
-#ifndef ENSEMBLE_H
-#define ENSEMBLE_H
+#ifndef ENSEMBLE_GAUSSIAN_H
+#define ENSEMBLE_GAUSSIAN_H
 
 #include "Chain_Gaussian.h"
 
@@ -23,7 +23,7 @@ class Ensemble_Gaussian{
     
     void initialise_pars();
     
-    void initialise_pars(NumericMatrix B);
+    void initialise_pars(NumericVector mu, NumericVector sigma2);
     
     void update_chains(NumericVector& y, bool estimate_marginals);
     

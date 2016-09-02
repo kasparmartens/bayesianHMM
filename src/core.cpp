@@ -1,6 +1,7 @@
 // [[Rcpp::depends(RcppArmadillo)]]
 
 #include "Ensemble_Gaussian.h"
+#include "Ensemble_Discrete.h"
 #include <RcppArmadilloExtensions/sample.h>
 using namespace Rcpp;
 using namespace std;
@@ -474,22 +475,6 @@ IntegerVector sample_helper(int n_chains, int n){
 }
 
 
-
-
-// void initialise_trace_lists(List& tr_x, List& tr_pi, List& tr_A, List& tr_B,
-//                             List& tr_switching_prob, List& tr_loglik, List& tr_marginal_distr,
-//                             int k, int n, int trace_length, int n_chains){
-//   for(int i=0; i<n_chains; i++){
-//     tr_x[i] = List(trace_length);
-//     tr_pi[i] = List(trace_length);
-//     tr_A[i] = List(trace_length);
-//     tr_B[i] = List(trace_length);
-//     tr_switching_prob[i] = List(trace_length);
-//     tr_loglik[i] = List(trace_length);
-//     tr_marginal_distr[i] = NumericMatrix(k, n);
-//   }
-// }
-
 void scale_marginal_distr(NumericMatrix marginal_distr_res, int k, int n, int max_iter, int burnin){
   arma::mat out(marginal_distr_res.begin(), k, n, false);
   out /= (float) (max_iter - burnin);
@@ -506,11 +491,10 @@ List ensemble(int n_chains, NumericVector y, double alpha, int k, int s, int n,
   Ensemble_Gaussian ensemble(n_chains, k, s, n, alpha, is_fixed_B);
   
   // initialise transition matrices for all chains in the ensemble
-  if(is_fixed_B){
-    ensemble.initialise_pars(B);
-  } else{
-    ensemble.initialise_pars();
-  }
+  ensemble.initialise_pars();
+//   if(is_fixed_B){
+//     ensemble.initialise_pars(B);
+//   }
   
   // parallel tempering initilisation
   if(parallel_tempering){
