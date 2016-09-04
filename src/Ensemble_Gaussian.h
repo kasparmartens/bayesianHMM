@@ -25,7 +25,9 @@ class Ensemble_Gaussian{
     
     void initialise_pars(NumericVector mu, NumericVector sigma2);
     
-    void update_chains(NumericVector& y, bool estimate_marginals);
+    void update_pars(NumericVector& y);
+    
+    void update_x(NumericVector& y, bool estimate_marginals);
     
     void scale_marginals(int max_iter, int burnin);
     

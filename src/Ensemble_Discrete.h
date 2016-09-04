@@ -25,7 +25,9 @@ public:
   
   void initialise_pars(NumericMatrix B);
   
-  void update_chains(IntegerVector& y, bool estimate_marginals);
+  void update_pars(IntegerVector& y);
+  
+  void update_x(IntegerVector& y, bool estimate_marginals);
   
   void scale_marginals(int max_iter, int burnin);
   

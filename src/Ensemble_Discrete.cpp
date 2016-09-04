@@ -35,10 +35,15 @@ void Ensemble_Discrete::initialise_pars(NumericMatrix B0){
   }
 }
 
-void Ensemble_Discrete::update_chains(IntegerVector& y, bool estimate_marginals){
+void Ensemble_Discrete::update_pars(IntegerVector& y){
+  for(int i=0; i<n_chains; i++){
+    chains[i].update_pars(y);
+  }
+}
+
+void Ensemble_Discrete::update_x(IntegerVector& y, bool estimate_marginals){
   for(int i=0; i<n_chains; i++){
     chains[i].FB_step(y, estimate_marginals);
-    chains[i].update_pars(y);
   }
 }
 

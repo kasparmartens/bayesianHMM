@@ -35,10 +35,15 @@ void Ensemble_Gaussian::initialise_pars(NumericVector mu, NumericVector sigma2){
   }
 }
 
-void Ensemble_Gaussian::update_chains(NumericVector& y, bool estimate_marginals){
+void Ensemble_Gaussian::update_pars(NumericVector& y){
+  for(int i=0; i<n_chains; i++){
+    chains[i].update_pars(y);
+  }
+}
+
+void Ensemble_Gaussian::update_x(NumericVector& y, bool estimate_marginals){
   for(int i=0; i<n_chains; i++){
     chains[i].FB_step(y, estimate_marginals);
-    chains[i].update_pars(y);
   }
 }
 

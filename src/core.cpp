@@ -508,10 +508,12 @@ List ensemble(int n_chains, NumericVector y, double alpha, int k, int s, int n,
   List tr_x(list_length), tr_pi(list_length), tr_A(list_length), tr_mu(list_length), tr_sigma2(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length);
 
   for(int iter = 1; iter <= max_iter; iter++){
-    ensemble.update_chains(y, estimate_marginals && (iter > burnin));
+    ensemble.update_x(y, estimate_marginals && (iter > burnin));
+    ensemble.update_pars(y);
 
     if(crossovers && (iter > swaps_burnin) && (iter % swaps_freq == 0)){
       ensemble.do_crossovers(n_crossovers);
+      ensemble.update_pars(y);
     }
     if(parallel_tempering && (iter > swaps_burnin) && (iter % swaps_freq == 0)){
       if(swap_type == 0) ensemble.swap_everything();
