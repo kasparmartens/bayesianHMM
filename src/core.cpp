@@ -482,19 +482,19 @@ void scale_marginal_distr(NumericMatrix marginal_distr_res, int k, int n, int ma
 
 //' @export
 // [[Rcpp::export]]
-List ensemble(int n_chains, NumericVector y, double alpha, int k, int s, int n, 
+List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s, int n, 
               int max_iter, int burnin, int thin, 
-              bool estimate_marginals, bool is_fixed_B, bool parallel_tempering, bool crossovers, 
-              NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericMatrix B, IntegerVector which_chains){
+              bool estimate_marginals, bool fixed_pars, bool parallel_tempering, bool crossovers, 
+              NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericVector mu, NumericVector sigma2, IntegerVector which_chains){
 
   // initialise ensemble of n_chains
-  Ensemble_Gaussian ensemble(n_chains, k, s, n, alpha, is_fixed_B);
+  Ensemble_Gaussian ensemble(n_chains, k, s, n, alpha, fixed_pars);
   
   // initialise transition matrices for all chains in the ensemble
   ensemble.initialise_pars();
-//   if(is_fixed_B){
-//     ensemble.initialise_pars(B);
-//   }
+  if(fixed_pars){
+    ensemble.initialise_pars(mu, sigma2);
+  }
   
   // parallel tempering initilisation
   if(parallel_tempering){
@@ -546,19 +546,64 @@ List ensemble(int n_chains, NumericVector y, double alpha, int k, int s, int n,
 
 //' @export
 // [[Rcpp::export]]
-IntegerMatrix hamming_distance(NumericMatrix X, int n, int m){
-  IntegerMatrix dist(n, n);
-  int temp;
-  for(int j=0; j<(n-1); j++){
-    for(int i=j+1; i<n; i++){
-      temp = 0;
-      for(int t=0; t<m; t++){
-        if(X(i, t) != X(j, t)){
-          temp += 1;
-        }
-      }
-      dist(i, j) = temp;
-    }
+List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s, int n, 
+                       int max_iter, int burnin, int thin, 
+                       bool estimate_marginals, bool fixed_pars, bool parallel_tempering, bool crossovers, 
+                       NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericMatrix B, IntegerVector which_chains){
+  
+  // initialise ensemble of n_chains
+  Ensemble_Discrete ensemble(n_chains, k, s, n, alpha, fixed_pars);
+  
+  // initialise transition matrices for all chains in the ensemble
+  ensemble.initialise_pars();
+  if(fixed_pars){
+    ensemble.initialise_pars(B);
   }
-  return dist;
+  
+  // parallel tempering initilisation
+  if(parallel_tempering){
+    ensemble.activate_parallel_tempering(temperatures);
+  }
+  
+  int index;
+  int n_chains_out = which_chains.size();
+  int trace_length = (max_iter - burnin + (thin - 1)) / thin;
+  int list_length = n_chains_out * trace_length;
+  List tr_x(list_length), tr_pi(list_length), tr_A(list_length), tr_B(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length);
+  
+  for(int iter = 1; iter <= max_iter; iter++){
+    ensemble.update_x(y, estimate_marginals && (iter > burnin));
+    ensemble.update_pars(y);
+    
+    if(crossovers && (iter > swaps_burnin) && (iter % swaps_freq == 0)){
+      ensemble.do_crossovers(n_crossovers);
+      ensemble.update_pars(y);
+    }
+    if(parallel_tempering && (iter > swaps_burnin) && (iter % swaps_freq == 0)){
+      if(swap_type == 0) ensemble.swap_everything();
+      if(swap_type == 1) ensemble.swap_pars();
+      if(swap_type == 2) ensemble.swap_x();
+    }
+    
+    if((iter > burnin) && ((iter-1) % thin == 0)){
+      index = (iter - burnin - 1)/thin;
+      ensemble.copy_values_to_trace(which_chains, tr_x, tr_pi, tr_A, tr_B, tr_loglik, tr_loglik_cond, tr_switching_prob, index);
+    }
+    if(iter % 1000 == 0) printf("iter %d\n", iter);
+  }
+  
+  ensemble.scale_marginals(max_iter, burnin);
+  ListOf<NumericMatrix> tr_marginal_distr = ensemble.get_copy_of_marginals(which_chains);
+  
+  return List::create(Rcpp::Named("trace_x") = tr_x,
+                      Rcpp::Named("trace_pi") = tr_pi,
+                      Rcpp::Named("trace_A") = tr_A,
+                      Rcpp::Named("trace_B") = tr_B,
+                      Rcpp::Named("log_posterior") = tr_loglik,
+                      Rcpp::Named("log_posterior_cond") = tr_loglik_cond,
+                      Rcpp::Named("switching_prob") = tr_switching_prob,
+                      Rcpp::Named("marginal_distr") = tr_marginal_distr, 
+                      Rcpp::Named("acceptance_ratio") = ensemble.get_acceptance_ratio());
+  
 }
+

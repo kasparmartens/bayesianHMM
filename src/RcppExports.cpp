@@ -90,9 +90,9 @@ BEGIN_RCPP
     return R_NilValue;
 END_RCPP
 }
-// ensemble
-List ensemble(int n_chains, NumericVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool estimate_marginals, bool is_fixed_B, bool parallel_tempering, bool crossovers, NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericMatrix B, IntegerVector which_chains);
-RcppExport SEXP ensembleHMM_ensemble(SEXP n_chainsSEXP, SEXP ySEXP, SEXP alphaSEXP, SEXP kSEXP, SEXP sSEXP, SEXP nSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP estimate_marginalsSEXP, SEXP is_fixed_BSEXP, SEXP parallel_temperingSEXP, SEXP crossoversSEXP, SEXP temperaturesSEXP, SEXP swap_typeSEXP, SEXP swaps_burninSEXP, SEXP swaps_freqSEXP, SEXP n_crossoversSEXP, SEXP BSEXP, SEXP which_chainsSEXP) {
+// ensemble_gaussian
+List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool estimate_marginals, bool fixed_pars, bool parallel_tempering, bool crossovers, NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericVector mu, NumericVector sigma2, IntegerVector which_chains);
+RcppExport SEXP ensembleHMM_ensemble_gaussian(SEXP n_chainsSEXP, SEXP ySEXP, SEXP alphaSEXP, SEXP kSEXP, SEXP sSEXP, SEXP nSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP estimate_marginalsSEXP, SEXP fixed_parsSEXP, SEXP parallel_temperingSEXP, SEXP crossoversSEXP, SEXP temperaturesSEXP, SEXP swap_typeSEXP, SEXP swaps_burninSEXP, SEXP swaps_freqSEXP, SEXP n_crossoversSEXP, SEXP muSEXP, SEXP sigma2SEXP, SEXP which_chainsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
@@ -106,7 +106,38 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type burnin(burninSEXP);
     Rcpp::traits::input_parameter< int >::type thin(thinSEXP);
     Rcpp::traits::input_parameter< bool >::type estimate_marginals(estimate_marginalsSEXP);
-    Rcpp::traits::input_parameter< bool >::type is_fixed_B(is_fixed_BSEXP);
+    Rcpp::traits::input_parameter< bool >::type fixed_pars(fixed_parsSEXP);
+    Rcpp::traits::input_parameter< bool >::type parallel_tempering(parallel_temperingSEXP);
+    Rcpp::traits::input_parameter< bool >::type crossovers(crossoversSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type temperatures(temperaturesSEXP);
+    Rcpp::traits::input_parameter< int >::type swap_type(swap_typeSEXP);
+    Rcpp::traits::input_parameter< int >::type swaps_burnin(swaps_burninSEXP);
+    Rcpp::traits::input_parameter< int >::type swaps_freq(swaps_freqSEXP);
+    Rcpp::traits::input_parameter< int >::type n_crossovers(n_crossoversSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type sigma2(sigma2SEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type which_chains(which_chainsSEXP);
+    __result = Rcpp::wrap(ensemble_gaussian(n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, fixed_pars, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, n_crossovers, mu, sigma2, which_chains));
+    return __result;
+END_RCPP
+}
+// ensemble_discrete
+List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool estimate_marginals, bool fixed_pars, bool parallel_tempering, bool crossovers, NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericMatrix B, IntegerVector which_chains);
+RcppExport SEXP ensembleHMM_ensemble_discrete(SEXP n_chainsSEXP, SEXP ySEXP, SEXP alphaSEXP, SEXP kSEXP, SEXP sSEXP, SEXP nSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP estimate_marginalsSEXP, SEXP fixed_parsSEXP, SEXP parallel_temperingSEXP, SEXP crossoversSEXP, SEXP temperaturesSEXP, SEXP swap_typeSEXP, SEXP swaps_burninSEXP, SEXP swaps_freqSEXP, SEXP n_crossoversSEXP, SEXP BSEXP, SEXP which_chainsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< int >::type n_chains(n_chainsSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type y(ySEXP);
+    Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
+    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< int >::type s(sSEXP);
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
+    Rcpp::traits::input_parameter< int >::type burnin(burninSEXP);
+    Rcpp::traits::input_parameter< int >::type thin(thinSEXP);
+    Rcpp::traits::input_parameter< bool >::type estimate_marginals(estimate_marginalsSEXP);
+    Rcpp::traits::input_parameter< bool >::type fixed_pars(fixed_parsSEXP);
     Rcpp::traits::input_parameter< bool >::type parallel_tempering(parallel_temperingSEXP);
     Rcpp::traits::input_parameter< bool >::type crossovers(crossoversSEXP);
     Rcpp::traits::input_parameter< NumericVector >::type temperatures(temperaturesSEXP);
@@ -116,20 +147,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type n_crossovers(n_crossoversSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type B(BSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type which_chains(which_chainsSEXP);
-    __result = Rcpp::wrap(ensemble(n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, is_fixed_B, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, n_crossovers, B, which_chains));
-    return __result;
-END_RCPP
-}
-// hamming_distance
-IntegerMatrix hamming_distance(NumericMatrix X, int n, int m);
-RcppExport SEXP ensembleHMM_hamming_distance(SEXP XSEXP, SEXP nSEXP, SEXP mSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject __result;
-    Rcpp::RNGScope __rngScope;
-    Rcpp::traits::input_parameter< NumericMatrix >::type X(XSEXP);
-    Rcpp::traits::input_parameter< int >::type n(nSEXP);
-    Rcpp::traits::input_parameter< int >::type m(mSEXP);
-    __result = Rcpp::wrap(hamming_distance(X, n, m));
+    __result = Rcpp::wrap(ensemble_discrete(n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, fixed_pars, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, n_crossovers, B, which_chains));
     return __result;
 END_RCPP
 }

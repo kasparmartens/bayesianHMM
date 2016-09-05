@@ -7,9 +7,13 @@ postprocess_chains = function(res, n_chains_out, max_iter, thin){
   res$trace_x = lapply(seq_ind, function(ind) do.call("rbind", res$trace_x[ind]))
   res$trace_pi = lapply(seq_ind, function(ind) res$trace_pi[ind])
   res$trace_A = lapply(seq_ind, function(ind) res$trace_A[ind])
-  # res$trace_B = lapply(seq_ind, function(ind) res$trace_B[ind])
-  res$trace_mu = lapply(seq_ind, function(ind) do.call("rbind", res$trace_mu[ind]))
-  res$trace_sigma2 = lapply(seq_ind, function(ind) do.call("rbind", res$trace_sigma2[ind]))
+  if(res$type == "discrete"){
+    res$trace_B = lapply(seq_ind, function(ind) res$trace_B[ind])
+  }
+  if(res$type == "continuous"){
+    res$trace_mu = lapply(seq_ind, function(ind) do.call("rbind", res$trace_mu[ind]))
+    res$trace_sigma2 = lapply(seq_ind, function(ind) do.call("rbind", res$trace_sigma2[ind]))
+  }
   res$switching_prob = lapply(seq_ind, function(ind) do.call("rbind", res$switching_prob[ind]))
   res$log_posterior = lapply(seq_ind, function(ind) unlist(res$log_posterior[ind]))
   res$log_posterior_cond = lapply(seq_ind, function(ind) unlist(res$log_posterior_cond[ind]))
@@ -18,42 +22,59 @@ postprocess_chains = function(res, n_chains_out, max_iter, thin){
 }
 
 #' @export
-gibbs = function(n_chains, y, k, alpha, max_iter, burnin, which_chains = 1:n_chains, thin = 1, is_fixed_B = FALSE, B = matrix(0, k, s)){
+gibbs = function(type, n_chains, y, k, alpha, max_iter, burnin, which_chains = 1:n_chains, thin = 1, fixed_pars = FALSE, B = matrix(0, k, s), mu = rep(0, k), sigma2 = rep(1, k)){
   n = length(y)
   s = length(unique(y))
-  #if(!all(y %in% 1:s)) stop("y must be an integer from 1 to S")
-  
-  res = ensemble(n_chains, y, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, estimate_marginals = TRUE, is_fixed_B = is_fixed_B, parallel_tempering = FALSE, crossovers = FALSE, temperatures = rep(1, n_chains), swap_type = 0, swaps_burnin = max_iter, swaps_freq = 1, n_crossovers = 1, B = B, which_chains = which_chains)
-  
+  if(type == "discrete"){
+    if(!all(y %in% 1:s)) stop("y must be an integer from 1 to S")
+    res = ensemble_discrete(n_chains, as.integer(y), alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, estimate_marginals = TRUE, fixed_pars = fixed_pars, parallel_tempering = FALSE, crossovers = FALSE, temperatures = rep(1, n_chains), swap_type = 0, swaps_burnin = max_iter, swaps_freq = 1, n_crossovers = 1, B = B, which_chains = which_chains)
+  }
+  if(type == "continuous"){
+    res = ensemble_gaussian(n_chains, y, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, estimate_marginals = TRUE, fixed_pars = fixed_pars, parallel_tempering = FALSE, crossovers = FALSE, temperatures = rep(1, n_chains), swap_type = 0, swaps_burnin = max_iter, swaps_freq = 1, n_crossovers = 1, mu = mu, sigma2 = sigma2, which_chains = which_chains)
+  }
+  res$type = type
+  class(res) = "ensembleHMM"
   # postprocess the traces
   n_chains_out = length(which_chains)
   return(postprocess_chains(res, n_chains_out, max_iter, thin))
 }
 
 #' @export
-crossovers = function(n_chains, y, k, alpha, max_iter, burnin, swaps_burnin, which_chains = 1:n_chains, n_crossovers = 5, swaps_freq = 1, thin = 1, is_fixed_B = FALSE, B = matrix(0, k, s)){
+crossovers = function(type, n_chains, y, k, alpha, max_iter, burnin, swaps_burnin, which_chains = 1:n_chains, n_crossovers = 5, swaps_freq = 1, thin = 1, fixed_pars = FALSE, B = matrix(0, k, s), mu = rep(0, k), sigma2 = rep(1, k)){
   n = length(y)
   s = length(unique(y))
-  #if(!all(y %in% 1:s)) stop("y must be an integer from 1 to S")
-  
-  res = ensemble(n_chains, y, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, estimate_marginals = TRUE, is_fixed_B = is_fixed_B, parallel_tempering = FALSE, crossovers = TRUE, temperatures = rep(1, n_chains), swap_type = 0, swaps_burnin = swaps_burnin, swaps_freq = swaps_freq, n_crossovers = n_crossovers, B = B, which_chains = which_chains)
-  
+  if(type == "discrete"){
+    if(!all(y %in% 1:s)) stop("y must be an integer from 1 to S")
+    res = ensemble_discrete(n_chains, y, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, estimate_marginals = TRUE, fixed_pars = fixed_pars, parallel_tempering = FALSE, crossovers = TRUE, temperatures = rep(1, n_chains), swap_type = 0, swaps_burnin = swaps_burnin, swaps_freq = swaps_freq, n_crossovers = n_crossovers, B = B, which_chains = which_chains)
+  }
+  if(type == "continuous"){
+    res = ensemble_gaussian(n_chains, y, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, estimate_marginals = TRUE, fixed_pars = fixed_pars, parallel_tempering = FALSE, crossovers = TRUE, temperatures = rep(1, n_chains), swap_type = 0, swaps_burnin = swaps_burnin, swaps_freq = swaps_freq, n_crossovers = n_crossovers, mu = mu, sigma2 = sigma2, which_chains = which_chains)
+  }
+  res$type = type
+  class(res) = "ensembleHMM"
   # postprocess the traces
   n_chains_out = length(which_chains)
   return(postprocess_chains(res, n_chains_out, max_iter, thin))
 }
 
 #' @export
-parallel_tempering = function(n_chains, temperatures, y, k, alpha, max_iter, burnin, swaps_burnin, swaps_freq = 1, swap_type = 0, which_chains = 1:n_chains, thin = 1, is_fixed_B = FALSE, B = matrix(0, k, s)){
+parallel_tempering = function(type, n_chains, temperatures, y, k, alpha, max_iter, burnin, swaps_burnin, swaps_freq = 1, swap_type = 0, which_chains = 1:n_chains, thin = 1, fixed_pars = FALSE, B = matrix(0, k, s), mu = rep(0, k), sigma2 = rep(1, k)){
   n = length(y)
   s = length(unique(y))
-  #if(!all(y %in% 1:s)) stop("y must be an integer from 1 to S")
   if(length(temperatures) != n_chains) stop("Specify a temperature for each chain!")
-  
-  res = ensemble(n_chains, y, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, 
-                 estimate_marginals = TRUE, is_fixed_B = is_fixed_B, parallel_tempering = TRUE, crossovers = FALSE, 
-                 temperatures = temperatures, swap_type = swap_type, swaps_burnin = swaps_burnin, swaps_freq = swaps_freq, n_crossovers = 1, B = B, which_chains = which_chains)
-  
+  if(type == "discrete"){
+    if(!all(y %in% 1:s)) stop("y must be an integer from 1 to S")
+    res = ensemble_discrete(n_chains, y, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, 
+                             estimate_marginals = TRUE, fixed_pars = fixed_pars, parallel_tempering = TRUE, crossovers = FALSE, 
+                             temperatures = temperatures, swap_type = swap_type, swaps_burnin = swaps_burnin, swaps_freq = swaps_freq, n_crossovers = 1, B = B, which_chains = which_chains)
+  }
+  if(type == "continuous"){
+    res = ensemble_gaussian(n_chains, y, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, 
+                            estimate_marginals = TRUE, fixed_pars = fixed_pars, parallel_tempering = TRUE, crossovers = FALSE, 
+                            temperatures = temperatures, swap_type = swap_type, swaps_burnin = swaps_burnin, swaps_freq = swaps_freq, n_crossovers = 1, mu = mu, sigma2 = sigma2, which_chains = which_chains)
+  }
+  res$type = type
+  class(res) = "ensembleHMM"
   # postprocess the traces
   n_chains_out = length(which_chains)
   return(postprocess_chains(res, n_chains_out, max_iter, thin))

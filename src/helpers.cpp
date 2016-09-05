@@ -50,3 +50,21 @@ double normalise_mat(NumericMatrix A, int m, int n){
   B /= sum;
   return sum;
 }
+
+
+IntegerMatrix hamming_distance(NumericMatrix X, int n, int m){
+  IntegerMatrix dist(n, n);
+  int temp;
+  for(int j=0; j<(n-1); j++){
+    for(int i=j+1; i<n; i++){
+      temp = 0;
+      for(int t=0; t<m; t++){
+        if(X(i, t) != X(j, t)){
+          temp += 1;
+        }
+      }
+      dist(i, j) = temp;
+    }
+  }
+  return dist;
+}
