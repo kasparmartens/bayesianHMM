@@ -1,6 +1,6 @@
 #include "Chain.h"
 
-Chain::Chain(int k_, int s_, int n_, double alpha_, bool is_fixed_B_, bool is_discrete_, bool is_gaussian_){
+Chain::Chain(int k_, int s_, int n_, double alpha_, bool is_fixed_B_){
   k = k_;
   s = s_;
   n = n_;

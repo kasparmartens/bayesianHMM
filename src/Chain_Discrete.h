@@ -10,7 +10,9 @@ class Chain_Discrete : public Chain {
   NumericMatrix B;
 
   public:
-    Chain_Discrete(int k, int s, int n, double alpha, bool is_fixed_B) : Chain(k, s, n, alpha, is_fixed_B, true, false){}
+    Chain_Discrete(int k, int s, int n, double alpha, bool is_fixed_B) : Chain(k, s, n, alpha, is_fixed_B){
+      B = NumericMatrix(k, s);
+    }
     
     NumericMatrix& get_B(){
       return B;
@@ -65,7 +67,6 @@ class Chain_Discrete : public Chain {
       else{
         forward_step(pi, A, emission_probs, P, loglik_marginal, k, n);
       }
-      
       // now backward sampling
       backward_sampling(x, P, possible_values, k, n);
       // and nonstochastic backward step (optional)

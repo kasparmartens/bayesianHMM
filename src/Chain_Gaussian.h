@@ -11,7 +11,7 @@ class Chain_Gaussian : public Chain {
   NumericVector mu, sigma2;
     
   public:
-    Chain_Gaussian(int k, int s, int n, double alpha, bool is_fixed_B) : Chain(k, s, n, alpha, is_fixed_B, false, true){
+    Chain_Gaussian(int k, int s, int n, double alpha, bool is_fixed_B) : Chain(k, s, n, alpha, is_fixed_B){
       mu = NumericVector(k);
       sigma2 = NumericVector(k);
       a0 = 0.01;
