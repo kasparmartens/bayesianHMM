@@ -68,3 +68,19 @@ generate_gaussian_obs = function(segment_lengths, classes, mu, sigma){
   y = rnorm(length(x), mean = mu[x], sd=sigma[x])
   return(list(x = factor(x, levels = sort(unique(x))), y = y))
 }
+
+#' @export
+generate_t_obs = function(segment_lengths, classes, mu, sigma, df){
+  if(length(segment_lengths) != length(classes)) stop()
+  n = sum(segment_lengths)
+  # generate x
+  x = rep(NA, n)
+  cum_lengths = c(0, cumsum(segment_lengths))
+  for(i in 1:length(segment_lengths)){
+    ind = (cum_lengths[i]+1):(cum_lengths[i+1])
+    x[ind] = classes[i]
+  }
+  # generate y
+  y = rt(length(x), df) * sigma[x] + mu[x]
+  return(list(x = factor(x, levels = sort(unique(x))), y = y))
+}
