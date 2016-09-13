@@ -4,7 +4,7 @@ Examples how to use the package:
 
 ### Gaussian observations
 
-```
+```r
 library(ensembleHMM)
 
 # Data generation: specify segment lengths and their classes
@@ -29,7 +29,7 @@ res = crossovers(type = "continuous", n_chains = 8, n_crossovers = 2, swaps_freq
 
 ### Discrete observations
 
-```
+```r
 library(ensembleHMM)
 
 # Data generation: specify segment lengths and their classes
