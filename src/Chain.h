@@ -9,9 +9,9 @@ class Chain {
   protected:
     int k, s, n;
     NumericVector pi, switching_prob;
-    NumericMatrix A, marginal_distr, emission_probs, emission_probs_tempered;
+    NumericMatrix A, A_pars, A_gamma, marginal_distr, emission_probs, emission_probs_tempered;
     arma::ivec x;
-    double loglik_marginal, loglik_cond, alpha, inv_temperature;
+    double a0, b0, loglik_marginal, loglik_cond, alpha, inv_temperature;
     bool estimate_marginals, is_fixed_B, is_tempered;
     IntegerVector possible_values;
     ListOf<NumericMatrix> P, Q;
@@ -37,6 +37,10 @@ class Chain {
     
     NumericVector& get_pi(){
       return pi;
+    }
+    
+    double get_alpha(){
+      return alpha;
     }
     
     double get_inv_temperature(){

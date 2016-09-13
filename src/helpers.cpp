@@ -14,9 +14,6 @@ void initialise_const_mat(NumericMatrix A, double alpha, int nrow, int ncol){
       A(i, j) = alpha;
     }
   }
-  // add 1 to diagonal
-  for(int i=0; i<nrow; i++)
-    A(i, i) += 1.0;
 }
 
 double calculate_nondiagonal_sum(NumericMatrix mat, int k){

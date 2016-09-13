@@ -28,7 +28,7 @@ class Chain_Discrete : public Chain {
       initialise_const_vec(pi_pars, alpha, k);
       rdirichlet_vec(pi_pars, pi, k);
       // draw A from the prior
-      transition_mat_update1(A, x, alpha, k, 0);
+      transition_mat_update1(A, A_pars, x, A_gamma, alpha, k, 0);
       // draw B from the prior
       transition_mat_update2(B, x, IntegerVector(1), alpha, k, s, 0);
     }
@@ -39,14 +39,15 @@ class Chain_Discrete : public Chain {
       initialise_const_vec(pi_pars, alpha, k);
       rdirichlet_vec(pi_pars, pi, k);
       // draw A from the prior
-      transition_mat_update1(A, x, alpha, k, 0);
+      transition_mat_update1(A, A_pars, x, A_gamma, alpha, k, 0);
       // B is fixed
       B = clone(B0);
     }
     
     void update_pars(IntegerVector& y){
       transition_mat_update0(pi, x, alpha, k);
-      transition_mat_update1(A, x, alpha, k, n);
+      transition_mat_update1(A, A_pars, x, A_gamma, alpha, k, n);
+      //update_alpha_new(alpha, beta, A, A_pars, a0, b0, k);
       if(!is_fixed_B){
         if(!is_tempered){
           transition_mat_update2(B, x, y, alpha, k, s, n);
@@ -85,15 +86,19 @@ class Chain_Discrete : public Chain {
       }
     }
     
-    void copy_values_to_trace(List& trace_x, List& trace_pi, List& trace_A, List& trace_B, List& log_posterior, List& log_posterior_cond, List& trace_switching_prob, int index){
+    void copy_values_to_trace(List& trace_x, List& trace_pi, List& trace_A, List& trace_B, List& trace_alpha, List& log_posterior, List& log_posterior_cond, List& trace_switching_prob, int index, IntegerVector subsequence){
       IntegerVector xx(x.begin(), x.end());
-      trace_x[index] = clone(xx);
+      IntegerVector xxx = xx[subsequence];
+      trace_x[index] = clone(xxx);
       trace_pi[index] = clone(pi);
       trace_A[index] = clone(A);
       trace_B[index] = clone(B);
+      trace_alpha[index] = alpha;
       log_posterior[index] = loglik_marginal;
       log_posterior_cond[index] = loglik_cond;
-      trace_switching_prob[index] = clone(switching_prob);
+      IntegerVector subseq_small(subsequence.begin(), subsequence.end()-1);
+      NumericVector switching_prob_small = switching_prob[subseq_small];
+      trace_switching_prob[index] = clone(switching_prob_small);
     }
   
 };

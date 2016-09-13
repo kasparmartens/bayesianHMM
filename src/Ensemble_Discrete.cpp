@@ -111,12 +111,12 @@ void Ensemble_Discrete::swap_x(){
   n_total += 1;
 }
 
-void Ensemble_Discrete::copy_values_to_trace(IntegerVector& which_chains, List& trace_x, List& trace_pi, List& trace_A, List& trace_B, List& log_posterior, List& log_posterior_cond, List& trace_switching_prob, int index){
+void Ensemble_Discrete::copy_values_to_trace(IntegerVector& which_chains, List& trace_x, List& trace_pi, List& trace_A, List& trace_B, List& trace_alpha, List& log_posterior, List& log_posterior_cond, List& trace_switching_prob, int index, IntegerVector subsequence){
   int m = which_chains.size();
   int base_index = index * m;
   for(int i=0; i<m; i++){
     int ii = which_chains[i]-1;
-    chains[ii].copy_values_to_trace(trace_x, trace_pi, trace_A, trace_B, log_posterior, log_posterior_cond, trace_switching_prob, base_index + i);
+    chains[ii].copy_values_to_trace(trace_x, trace_pi, trace_A, trace_B, trace_alpha, log_posterior, log_posterior_cond, trace_switching_prob, base_index + i, subsequence);
   }
 }
 

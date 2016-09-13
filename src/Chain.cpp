@@ -7,11 +7,15 @@ Chain::Chain(int k_, int s_, int n_, double alpha_, bool is_fixed_B_){
   is_fixed_B = is_fixed_B_;
   is_tempered = false;
   inv_temperature = 1.0;
+  a0 = 0.1;
+  b0 = 0.1;
   x = arma::ivec(n);
   switching_prob = NumericVector(n-1);
   alpha = alpha_;
   pi = NumericVector(k);
   A = NumericMatrix(k, k);
+  A_pars = NumericMatrix(k, k);
+  A_gamma = NumericMatrix(k, k);
   emission_probs = NumericMatrix(k, n);
   loglik_marginal = 0.0;
   loglik_cond = 0.0;

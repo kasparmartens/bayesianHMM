@@ -197,6 +197,20 @@ void rdirichlet_mat(NumericMatrix A, NumericMatrix res, int k, int s){
   }
 }
 
+void rdirichlet_mat(NumericMatrix A, NumericMatrix res, NumericMatrix Y, double alpha, int k, int s){
+  NumericVector temp(s);
+  for(int i=0; i<k; i++){
+    double sum = 0;
+    for(int j=0; j<s; j++){
+      Y(i, j) = R::rgamma(A(i, j) + alpha, 1);
+      sum += Y(i, j);
+    }
+    for(int j=0; j<s; j++){
+      res(i, j) = Y(i, j) / sum;
+    }
+  }
+}
+
 void transition_mat_update0(NumericVector pi, const arma::ivec & x, double alpha, int k){
   NumericVector pi_pars(k);
   initialise_const_vec(pi_pars, alpha, k);
@@ -204,14 +218,83 @@ void transition_mat_update0(NumericVector pi, const arma::ivec & x, double alpha
   rdirichlet_vec(pi_pars, pi, k);
 }
 
+double random_walk_log_scale(double current_value, double sd){
+  double proposal = log(current_value) + R::rnorm(0, sd);
+  return exp(proposal);
+}
+
+double calculate_logprob(double alpha, NumericMatrix A, NumericMatrix A_pars, double a0, double b0, int k, int s){
+  double logprob = 0.0;
+  // for each row i of transition matrix
+  logprob = R::dgamma(alpha, a0, 1.0/b0, true) + log(alpha);
+  for(int i=0; i<k; i++){
+    logprob += Rf_lgammafn(s*alpha) - s*Rf_lgammafn(alpha);
+    for(int j=0; j<s; j++){
+      //logprob += R::dgamma(Y(i, j), alpha + A_pars(i, j), 1.0, true);
+      logprob += (alpha-1)*log(A(i, j));
+    }
+  }
+  return logprob;
+}
+
+
+void update_alpha(double& alpha, NumericMatrix Y, NumericMatrix A_pars, double a0, double b0, int k){
+  double logprob_current = calculate_logprob(alpha, Y, A_pars, a0, b0, k, k);
+  // propose new alpha
+  double alpha_proposed = random_walk_log_scale(alpha, 0.3);
+  double logprob_proposed = calculate_logprob(alpha_proposed, Y, A_pars, a0, b0, k, k);
+  // accept or reject
+  if(R::runif(0, 1) < exp(logprob_proposed - logprob_current)){
+    alpha = alpha_proposed;
+  }
+}
+
+void gamma_mat_to_dirichlet(NumericMatrix out, NumericMatrix& Y, int k, int s){
+  for(int i=0; i<k; i++){
+    double sum = 0;
+    for(int j=0; j<s; j++){
+      sum += Y(i, j);
+    }
+    for(int j=0; j<s; j++){
+      out(i, j) = Y(i, j) / sum;
+    }
+  }
+}
+
+
 void transition_mat_update1(NumericMatrix A, const arma::ivec & x, double alpha, int k, int n){
   NumericMatrix A_pars(k, k), AA(A);
   initialise_const_mat(A_pars, alpha, k, k);
+  // add 1 to diagonal
+  for(int i=0; i<k; i++)
+    A_pars(i, i) += 1.0;
+  // add transition counts
   for(int t=0; t<(n-1); t++){
     A_pars(x[t]-1, x[t+1]-1) += 1;
   }
   rdirichlet_mat(A_pars, AA, k, k);
 }
+
+void transition_mat_update1(NumericMatrix A, NumericMatrix A_pars, const arma::ivec & x, NumericMatrix Y, double alpha, int k, int n){
+  initialise_const_mat(A_pars, 0.0, k, k);
+  // add 1 to diagonal
+  for(int i=0; i<k; i++)
+    A_pars(i, i) += 1.0;
+  // add transition counts
+  for(int t=0; t<(n-1); t++){
+    A_pars(x[t]-1, x[t+1]-1) += 1;
+  }
+  rdirichlet_mat(A_pars, A, Y, alpha, k, k);
+}
+
+// void transition_mat_update1(NumericMatrix A, const arma::ivec & x, NumericMatrix Y, double alpha, int k, int n){
+//   NumericMatrix A_pars(k, k), AA(A);
+//   initialise_const_mat(A_pars, alpha, k, k);
+//   for(int t=0; t<(n-1); t++){
+//     A_pars(x[t]-1, x[t+1]-1) += 1;
+//   }
+//   rdirichlet_mat(A_pars, AA, Y, alpha, k, k);
+// }
 
 void transition_mat_update2(NumericMatrix B, const arma::ivec & x, IntegerVector y, double alpha, int k, int s, int n){
   NumericMatrix B_pars(k, s);
@@ -485,7 +568,8 @@ void scale_marginal_distr(NumericMatrix marginal_distr_res, int k, int n, int ma
 List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s, int n, 
               int max_iter, int burnin, int thin, 
               bool estimate_marginals, bool fixed_pars, bool parallel_tempering, bool crossovers, 
-              NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericVector mu, NumericVector sigma2, IntegerVector which_chains){
+              NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericVector mu, NumericVector sigma2, 
+              IntegerVector which_chains, IntegerVector subsequence){
 
   // initialise ensemble of n_chains
   Ensemble_Gaussian ensemble(n_chains, k, s, n, alpha, fixed_pars);
@@ -505,7 +589,7 @@ List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s
   int n_chains_out = which_chains.size();
   int trace_length = (max_iter - burnin + (thin - 1)) / thin;
   int list_length = n_chains_out * trace_length;
-  List tr_x(list_length), tr_pi(list_length), tr_A(list_length), tr_mu(list_length), tr_sigma2(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length);
+  List tr_x(list_length), tr_pi(list_length), tr_A(list_length), tr_mu(list_length), tr_sigma2(list_length), tr_alpha(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length);
 
   for(int iter = 1; iter <= max_iter; iter++){
     ensemble.update_x(y, estimate_marginals && (iter > burnin));
@@ -523,7 +607,7 @@ List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s
     
     if((iter > burnin) && ((iter-1) % thin == 0)){
       index = (iter - burnin - 1)/thin;
-      ensemble.copy_values_to_trace(which_chains, tr_x, tr_pi, tr_A, tr_mu, tr_sigma2, tr_loglik, tr_loglik_cond, tr_switching_prob, index);
+      ensemble.copy_values_to_trace(which_chains, tr_x, tr_pi, tr_A, tr_mu, tr_sigma2, tr_alpha, tr_loglik, tr_loglik_cond, tr_switching_prob, index, subsequence);
     }
     if(iter % 1000 == 0) printf("iter %d\n", iter);
   }
@@ -536,6 +620,7 @@ List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s
                       Rcpp::Named("trace_A") = tr_A,
                       Rcpp::Named("trace_mu") = tr_mu,
                       Rcpp::Named("trace_sigma2") = tr_sigma2,
+                      Rcpp::Named("trace_alpha") = tr_alpha,
                       Rcpp::Named("log_posterior") = tr_loglik,
                       Rcpp::Named("log_posterior_cond") = tr_loglik_cond,
                       Rcpp::Named("switching_prob") = tr_switching_prob,
@@ -549,7 +634,8 @@ List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s
 List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s, int n, 
                        int max_iter, int burnin, int thin, 
                        bool estimate_marginals, bool fixed_pars, bool parallel_tempering, bool crossovers, 
-                       NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericMatrix B, IntegerVector which_chains){
+                       NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericMatrix B, 
+                       IntegerVector which_chains, IntegerVector subsequence){
   
   // initialise ensemble of n_chains
   Ensemble_Discrete ensemble(n_chains, k, s, n, alpha, fixed_pars);
@@ -569,7 +655,7 @@ List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s
   int n_chains_out = which_chains.size();
   int trace_length = (max_iter - burnin + (thin - 1)) / thin;
   int list_length = n_chains_out * trace_length;
-  List tr_x(list_length), tr_pi(list_length), tr_A(list_length), tr_B(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length);
+  List tr_x(list_length), tr_pi(list_length), tr_A(list_length), tr_B(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length), tr_alpha(list_length);
   
   for(int iter = 1; iter <= max_iter; iter++){
     ensemble.update_x(y, estimate_marginals && (iter > burnin));
@@ -587,7 +673,7 @@ List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s
     
     if((iter > burnin) && ((iter-1) % thin == 0)){
       index = (iter - burnin - 1)/thin;
-      ensemble.copy_values_to_trace(which_chains, tr_x, tr_pi, tr_A, tr_B, tr_loglik, tr_loglik_cond, tr_switching_prob, index);
+      ensemble.copy_values_to_trace(which_chains, tr_x, tr_pi, tr_A, tr_B, tr_alpha, tr_loglik, tr_loglik_cond, tr_switching_prob, index, subsequence);
     }
     if(iter % 1000 == 0) printf("iter %d\n", iter);
   }
@@ -599,6 +685,7 @@ List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s
                       Rcpp::Named("trace_pi") = tr_pi,
                       Rcpp::Named("trace_A") = tr_A,
                       Rcpp::Named("trace_B") = tr_B,
+                      Rcpp::Named("trace_alpha") = tr_alpha,
                       Rcpp::Named("log_posterior") = tr_loglik,
                       Rcpp::Named("log_posterior_cond") = tr_loglik_cond,
                       Rcpp::Named("switching_prob") = tr_switching_prob,

@@ -115,12 +115,12 @@ void Ensemble_Gaussian::swap_x(){
   n_total += 1;
 }
 
-void Ensemble_Gaussian::copy_values_to_trace(IntegerVector& which_chains, List& trace_x, List& trace_pi, List& trace_A, List& trace_mu, List& trace_sigma2, List& log_posterior, List& log_posterior_cond, List& trace_switching_prob, int index){
+void Ensemble_Gaussian::copy_values_to_trace(IntegerVector& which_chains, List& trace_x, List& trace_pi, List& trace_A, List& trace_mu, List& trace_sigma2, List& trace_alpha, List& log_posterior, List& log_posterior_cond, List& trace_switching_prob, int index, IntegerVector subsequence){
   int m = which_chains.size();
   int base_index = index * m;
   for(int i=0; i<m; i++){
     int ii = which_chains[i]-1;
-    chains[ii].copy_values_to_trace(trace_x, trace_pi, trace_A, trace_mu, trace_sigma2, log_posterior, log_posterior_cond, trace_switching_prob, base_index + i);
+    chains[ii].copy_values_to_trace(trace_x, trace_pi, trace_A, trace_mu, trace_sigma2, trace_alpha, log_posterior, log_posterior_cond, trace_switching_prob, base_index + i, subsequence);
   }
 }
 

@@ -7,15 +7,15 @@
 using namespace Rcpp;
 
 class Chain_Gaussian : public Chain {
-  double a0, b0, rho;
+  double a_sigma, b_sigma, rho;
   NumericVector mu, sigma2;
     
   public:
     Chain_Gaussian(int k, int s, int n, double alpha, bool is_fixed_B) : Chain(k, s, n, alpha, is_fixed_B){
       mu = NumericVector(k);
       sigma2 = NumericVector(k);
-      a0 = 0.01;
-      b0 = 0.01;
+      a_sigma = 0.01;
+      b_sigma = 0.01;
       rho = 0.01;
     }
     
@@ -33,11 +33,11 @@ class Chain_Gaussian : public Chain {
       initialise_const_vec(pi_pars, alpha, k);
       rdirichlet_vec(pi_pars, pi, k);
       // draw A from the prior
-      transition_mat_update1(A, x, alpha, k, 0);
+      transition_mat_update1(A, A_pars, x, A_gamma, alpha, k, 0);
       // draw mu_k and sigma_k from the prior
       for(int i=0; i<k; i++){
         mu[i] = R::rnorm(0.0, 1.0/rho);
-        sigma2[i] = 1.0 / R::rgamma(a0, 1.0/b0);
+        sigma2[i] = 1.0 / R::rgamma(a_sigma, 1.0/b_sigma);
       }
     }
     
@@ -47,7 +47,7 @@ class Chain_Gaussian : public Chain {
       initialise_const_vec(pi_pars, alpha, k);
       rdirichlet_vec(pi_pars, pi, k);
       // draw A from the prior
-      transition_mat_update1(A, x, alpha, k, 0);
+      transition_mat_update1(A, A_pars, x, A_gamma, alpha, k, 0);
       // pars are fixed
       mu = clone(mu_);
       sigma2 = clone(sigma2_);
@@ -55,9 +55,10 @@ class Chain_Gaussian : public Chain {
     
     void update_pars(NumericVector& y){
       transition_mat_update0(pi, x, alpha, k);
-      transition_mat_update1(A, x, alpha, k, n);
+      transition_mat_update1(A, A_pars, x, A_gamma, alpha, k, n);
+      //update_alpha(alpha, A, A_pars, a0, b0, k);
       if(!is_fixed_B){
-        update_pars_gaussian(y, x, mu, sigma2, rho, inv_temperature, a0, b0, k, n);
+        update_pars_gaussian(y, x, mu, sigma2, rho, inv_temperature, a_sigma, b_sigma, k, n);
       }
     }
     
@@ -89,16 +90,20 @@ class Chain_Gaussian : public Chain {
       }
     }
     
-    void copy_values_to_trace(List& trace_x, List& trace_pi, List& trace_A, List& trace_mu, List& trace_sigma2, List& log_posterior, List& log_posterior_cond, List& trace_switching_prob, int index){
+    void copy_values_to_trace(List& trace_x, List& trace_pi, List& trace_A, List& trace_mu, List& trace_sigma2, List& trace_alpha, List& log_posterior, List& log_posterior_cond, List& trace_switching_prob, int index, IntegerVector subsequence){
       IntegerVector xx(x.begin(), x.end());
-      trace_x[index] = clone(xx);
+      IntegerVector xxx = xx[subsequence];
+      trace_x[index] = clone(xxx);
       trace_pi[index] = clone(pi);
       trace_A[index] = clone(A);
       trace_mu[index] = clone(mu);
       trace_sigma2[index] = clone(sigma2);
+      trace_alpha[index] = alpha;
       log_posterior[index] = loglik_marginal;
       log_posterior_cond[index] = loglik_cond;
-      trace_switching_prob[index] = clone(switching_prob);
+      IntegerVector subseq_small(subsequence.begin(), subsequence.end()-1);
+      NumericVector switching_prob_small = switching_prob[subseq_small];
+      trace_switching_prob[index] = clone(switching_prob_small);
     }
     
 };

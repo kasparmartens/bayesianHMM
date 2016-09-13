@@ -37,7 +37,9 @@ void rdirichlet_mat(NumericMatrix A, NumericMatrix res, int k, int s);
 
 void transition_mat_update0(NumericVector pi, const arma::ivec & x, double alpha, int k);
 
-void transition_mat_update1(NumericMatrix A, const arma::ivec & x, double alpha, int k, int n);
+//void transition_mat_update1(NumericMatrix A, const arma::ivec & x, double alpha, int k, int n);
+//void transition_mat_update1(NumericMatrix A, const arma::ivec & x, NumericMatrix Y, double alpha, int k, int n);
+void transition_mat_update1(NumericMatrix A, NumericMatrix A_pars, const arma::ivec & x, NumericMatrix Y, double alpha, int k, int n);
 
 void transition_mat_update2(NumericMatrix B, const arma::ivec & x, IntegerVector y, double alpha, int k, int s, int n);
 
@@ -75,3 +77,9 @@ NumericMatrix emission_probs_mat_gaussian(NumericVector y, NumericVector mu, Num
 NumericMatrix temper_emission_probs(NumericMatrix mat, double inv_temperature, int k, int n);
 
 void update_pars_gaussian(NumericVector& y, arma::ivec& x, NumericVector& mu, NumericVector& sigma2, double rho, double inv_temp, double a0, double b0, int k, int n);
+
+void update_alpha(double& alpha, NumericMatrix Y, NumericMatrix A_pars, double a0, double b0, int k);
+
+void gamma_mat_to_dirichlet(NumericMatrix out, NumericMatrix& Y, int k, int s);
+
+void transition_matA_hyperprior(NumericMatrix A, const arma::ivec & x, NumericMatrix& Y, NumericVector& alpha, double a0, double b0, double sd_alpha, double sd_Y, int k, int n);
