@@ -57,8 +57,23 @@ void Ensemble_Discrete::do_crossover(){
   IntegerVector selected_chains = sample_helper(n_chains, 2);
   int i = selected_chains[0]-1;
   int j = selected_chains[1]-1;
-  double_crossover(chains[i].get_x(), chains[j].get_x(), n);
+  // create temporary vectors x and y
+  arma::ivec x(chains[i].get_x_memptr(), n, true);
+  arma::ivec y(chains[j].get_x_memptr(), n, true);
+  // consider all crossovers
+  int temp;
+  NumericVector probs(n-1);
+  for(int t=0; t<n-1; t++){
+    // here we have (cumulatively)a crossover up to point t
+    temp = x[t];
+    x[t] = y[t];
+    y[t] = temp;
+    // compute the likelihood term
+    probs[t] = crossover_likelihood(x, y, t, chains[i].get_A(), chains[j].get_A());
+  }
+  nonuniform_crossover(chains[i].get_x(), chains[j].get_x(), probs, n);
 }
+
 
 void Ensemble_Discrete::do_crossovers(int n_crossovers){
   for(int i=0; i<n_crossovers; i++){

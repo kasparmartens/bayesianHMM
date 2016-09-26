@@ -45,9 +45,10 @@ void transition_mat_update2(NumericMatrix B, const arma::ivec & x, IntegerVector
 
 void initialise_transition_matrices(NumericVector pi, NumericMatrix A, NumericMatrix B, int k, int s);
 
-void crossover(arma::ivec& x, arma::ivec& y, int n);
-
-void double_crossover(arma::ivec& x, arma::ivec& y, int n);
+//void crossover(arma::ivec& x, arma::ivec& y, int n);
+//void double_crossover(arma::ivec& x, arma::ivec& y, int n);
+void nonuniform_crossover(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n);
+void uniform_crossover(arma::ivec& x, arma::ivec& y, int n);
 
 IntegerVector sample_helper(int n_chains, int n);
 
@@ -83,3 +84,5 @@ void update_alpha(double& alpha, NumericMatrix Y, NumericMatrix A_pars, double a
 void gamma_mat_to_dirichlet(NumericMatrix out, NumericMatrix& Y, int k, int s);
 
 void transition_matA_hyperprior(NumericMatrix A, const arma::ivec & x, NumericMatrix& Y, NumericVector& alpha, double a0, double b0, double sd_alpha, double sd_Y, int k, int n);
+
+double crossover_likelihood(const arma::ivec& x, const arma::ivec& y, int t, NumericMatrix Ax, NumericMatrix Ay);

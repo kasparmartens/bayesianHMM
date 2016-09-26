@@ -23,6 +23,10 @@ class Chain {
       return x;
     }
     
+    int* get_x_memptr(){
+      return x.memptr();
+    }
+    
     NumericMatrix& get_emission_probs(){
       return emission_probs;
     }

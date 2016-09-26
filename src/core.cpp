@@ -519,37 +519,51 @@ void initialise_mat_list(List& mat_list, int n, int k, int s){
   }
 }
 
-
-//' @export
-// [[Rcpp::export]]
-void crossover(arma::ivec& x, arma::ivec& y, int n){
-  IntegerVector possible_values = seq_len(n-1);
-  int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
-  arma::ivec temp = y.subvec(0, m-1);
-  for(int i=0; i<m; i++){
+// crossover of (x, y) at point t
+void crossover(arma::ivec& x, arma::ivec& y, int t){
+  arma::ivec temp = y.subvec(0, t-1);
+  for(int i=0; i<t; i++){
     y[i] = x[i];
     x[i] = temp[i];
   }
 }
 
-//' @export
-// [[Rcpp::export]]
-void double_crossover(arma::ivec& x, arma::ivec& y, int n){
-  IntegerVector possible_values = seq_len(n-1);
-  int start = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
-  int end = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
-  if(start == end){
-    return void();
-  }
-  if(start > end){
-    int a = start;
-    start = end;
-    end = a;
-  }
-  arma::ivec temp = x.subvec(start, end-1);
-  x.subvec(start, end-1) = y.subvec(start, end-1);
-  y.subvec(start, end-1) = temp;
+double crossover_likelihood(const arma::ivec& x, const arma::ivec& y, int t, NumericMatrix Ax, NumericMatrix Ay){
+  double a1 = Ax(x[t]-1, y[t+1]-1);
+  double a2 = Ay(y[t]-1, x[t+1]-1);
+  double a = a1 * a2;
+  return a;
 }
+
+void uniform_crossover(arma::ivec& x, arma::ivec& y, int n){
+  IntegerVector possible_values = seq_len(n-1);
+  int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
+  crossover(x, y, m);
+}
+
+void nonuniform_crossover(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n){
+  IntegerVector possible_values = seq_len(n-1);
+  int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, probs));
+  printf("crossover point %d", m);
+  crossover(x, y, m);
+}
+
+// void double_crossover(arma::ivec& x, arma::ivec& y, int n){
+//   IntegerVector possible_values = seq_len(n-1);
+//   int start = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
+//   int end = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
+//   if(start == end){
+//     return void();
+//   }
+//   if(start > end){
+//     int a = start;
+//     start = end;
+//     end = a;
+//   }
+//   arma::ivec temp = x.subvec(start, end-1);
+//   x.subvec(start, end-1) = y.subvec(start, end-1);
+//   y.subvec(start, end-1) = temp;
+// }
 
 IntegerVector sample_helper(int n_chains, int n){
   IntegerVector possible_values = seq_len(n_chains);
