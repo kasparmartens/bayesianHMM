@@ -1,7 +1,7 @@
 #' @useDynLib ensembleHMM
 #' @importFrom Rcpp sourceCpp
 
-postprocess_chains = function(res, n_chains_out, max_iter, thin){
+postprocess_chains = function(res, n_chains_out, burnin, max_iter, thin){
   m = length(res$trace_x)
   seq_ind = lapply(1:n_chains_out, function(i)seq(i, m, n_chains_out))
   res$trace_x = lapply(seq_ind, function(ind) do.call("rbind", res$trace_x[ind]))
@@ -18,7 +18,7 @@ postprocess_chains = function(res, n_chains_out, max_iter, thin){
   res$switching_prob = lapply(seq_ind, function(ind) do.call("rbind", res$switching_prob[ind]))
   res$log_posterior = lapply(seq_ind, function(ind) unlist(res$log_posterior[ind]))
   res$log_posterior_cond = lapply(seq_ind, function(ind) unlist(res$log_posterior_cond[ind]))
-  res$iter = as.integer(seq(1, max_iter, thin))
+  res$iter = as.integer(seq(burnin+1, max_iter, thin))
   return(res)
 }
 
@@ -37,7 +37,7 @@ gibbs = function(type, n_chains, y, k, alpha, max_iter, burnin, which_chains = 1
   class(res) = "ensembleHMM"
   # postprocess the traces
   n_chains_out = length(which_chains)
-  return(postprocess_chains(res, n_chains_out, max_iter, thin))
+  return(postprocess_chains(res, n_chains_out, burnin, max_iter, thin))
 }
 
 #' @export
@@ -55,7 +55,7 @@ crossovers = function(type, n_chains, y, k, alpha, max_iter, burnin, swaps_burni
   class(res) = "ensembleHMM"
   # postprocess the traces
   n_chains_out = length(which_chains)
-  return(postprocess_chains(res, n_chains_out, max_iter, thin))
+  return(postprocess_chains(res, n_chains_out, burnin, max_iter, thin))
 }
 
 #' @export
@@ -78,5 +78,5 @@ parallel_tempering = function(type, n_chains, temperatures, y, k, alpha, max_ite
   class(res) = "ensembleHMM"
   # postprocess the traces
   n_chains_out = length(which_chains)
-  return(postprocess_chains(res, n_chains_out, max_iter, thin))
+  return(postprocess_chains(res, n_chains_out, burnin, max_iter, thin))
 }
