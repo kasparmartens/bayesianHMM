@@ -544,7 +544,6 @@ void uniform_crossover(arma::ivec& x, arma::ivec& y, int n){
 void nonuniform_crossover(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n){
   IntegerVector possible_values = seq_len(n-1);
   int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, probs));
-  printf("crossover point %d", m);
   crossover(x, y, m);
 }
 
