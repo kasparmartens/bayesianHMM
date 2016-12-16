@@ -519,8 +519,12 @@ void initialise_mat_list(List& mat_list, int n, int k, int s){
   }
 }
 
-// crossover of (x, y) at point t
+// crossover of (x, y) at point t, resulting in subsequences
+// (R-indexing) 1:t and (t+1):n
+// (Cpp-indexing) 0:(t-1) and t:(n-1) 
 void crossover(arma::ivec& x, arma::ivec& y, int t){
+  if(t == 0) 
+    return;
   arma::ivec temp = y.subvec(0, t-1);
   for(int i=0; i<t; i++){
     y[i] = x[i];
@@ -528,23 +532,26 @@ void crossover(arma::ivec& x, arma::ivec& y, int t){
   }
 }
 
-double crossover_likelihood(const arma::ivec& x, const arma::ivec& y, int t, NumericMatrix Ax, NumericMatrix Ay){
-  double a1 = Ax(x[t]-1, y[t+1]-1);
-  double a2 = Ay(y[t]-1, x[t+1]-1);
-  double a = a1 * a2;
-  return a;
+double crossover_likelihood(const arma::ivec& x, const arma::ivec& y, int t, int n, NumericMatrix Ax, NumericMatrix Ay){
+  if((t == 0) || (t == n)){
+    return 1.0;
+  } else{
+    double num = Ax(x[t-1]-1, y[t]-1) * Ay(y[t-1]-1, x[t]-1);
+    double denom = Ax(x[t-1]-1, x[t]-1) * Ay(y[t-1]-1, y[t]-1) + 1.0e-15;
+    return num / denom;
+  }
 }
 
 void uniform_crossover(arma::ivec& x, arma::ivec& y, int n){
-  IntegerVector possible_values = seq_len(n-1);
+  IntegerVector possible_values = seq_len(n+1);
   int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
-  crossover(x, y, m);
+  crossover(x, y, m-1);
 }
 
 void nonuniform_crossover(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n){
-  IntegerVector possible_values = seq_len(n-1);
+  IntegerVector possible_values = seq_len(n+1);
   int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, probs));
-  crossover(x, y, m);
+  crossover(x, y, m-1);
 }
 
 // void double_crossover(arma::ivec& x, arma::ivec& y, int n){

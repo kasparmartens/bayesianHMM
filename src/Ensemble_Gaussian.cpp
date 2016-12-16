@@ -68,12 +68,16 @@ void Ensemble_Gaussian::do_crossover(){
   // (u, v) <- uniform_crossover(...)
   arma::ivec u(chains[i].get_x_memptr(), n, false);
   arma::ivec v(chains[j].get_x_memptr(), n, false);
-  uniform_crossover(u, v, n);
+  if(R::runif(0, 1) < 0.5){
+    uniform_crossover(u, v, n);
+  } else{
+    uniform_crossover(v, u, n);
+  }
   // consider all crossovers of u and v
-  NumericVector probs(n-1);
-  for(int t=0; t<n-1; t++){
+  NumericVector probs(n+1);
+  for(int t=0; t<n+1; t++){
     // compute the likelihood term
-    probs[t] = crossover_likelihood(u, v, t, chains[i].get_A(), chains[j].get_A());
+    probs[t] = crossover_likelihood(u, v, t, n, chains[i].get_A(), chains[j].get_A());
   }
   // pick one of the crossovers and accept this move
   nonuniform_crossover(u, v, probs, n);
