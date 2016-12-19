@@ -48,6 +48,8 @@ void initialise_transition_matrices(NumericVector pi, NumericMatrix A, NumericMa
 //void crossover(arma::ivec& x, arma::ivec& y, int n);
 //void double_crossover(arma::ivec& x, arma::ivec& y, int n);
 void nonuniform_crossover(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n);
+void nonuniform_crossover2(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n);
+  
 void uniform_crossover(arma::ivec& x, arma::ivec& y, int n);
 
 IntegerVector sample_helper(int n_chains, int n);

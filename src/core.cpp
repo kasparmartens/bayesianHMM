@@ -344,7 +344,7 @@ double marginal_loglikelihood(NumericVector pi, NumericMatrix A, NumericMatrix e
   NumericVector b;
   
   NumericMatrix emission_probs_tempered = temper_emission_probs(emission_probs, inv_temp, k, n);
-
+  
   for(int t=0; t<n; t++){
     b = emission_probs_tempered(_, t);
     for(int s=0; s<k; s++){
@@ -363,7 +363,7 @@ double marginal_loglikelihood(NumericVector pi, NumericMatrix A, NumericMatrix e
 }
 
 double MH_acceptance_prob_swap_everything(arma::ivec& x1, NumericMatrix& emission_probs1, arma::ivec& x2, NumericMatrix& emission_probs2, 
-                                     double inv_temp1, double inv_temp2, int n){
+                                          double inv_temp1, double inv_temp2, int n){
   // here, emission_probs are already tempered. Need to "untemper" first
   double loglik1 = 1.0/inv_temp1 * loglikelihood(x1, emission_probs1, n);
   double loglik2 = 1.0/inv_temp2 * loglikelihood(x2, emission_probs2, n);
@@ -415,7 +415,7 @@ List forward_backward_fast(NumericVector pi, NumericMatrix A, NumericMatrix B, I
   }
   ListOf<NumericMatrix> P(PP), Q(QQ);
   double loglik=0.0;
-
+  
   NumericMatrix emission_probs = emission_probs_mat_discrete(y, B, k, n);
   forward_step(pi, A, emission_probs, P, loglik, k, n);
   // now backward sampling
@@ -424,7 +424,7 @@ List forward_backward_fast(NumericVector pi, NumericMatrix A, NumericMatrix B, I
   backward_sampling(x, P, possible_values, k, n);
   // and backward recursion to obtain marginal distributions
   if(marginal_distr) backward_step(P, Q, k, n);
-
+  
   IntegerVector xx = as<IntegerVector>(wrap(x));
   xx.attr("dim") = R_NilValue;
   return List::create(Rcpp::Named("x_draw") = xx,
@@ -457,7 +457,7 @@ List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0,
   }
   ListOf<NumericMatrix> P(PP), Q(QQ);
   arma::ivec x(n);
-
+  
   int trace_length, index;
   trace_length = (max_iter - burnin + (thin - 1)) / thin;
   List trace_x(trace_length), trace_pi(trace_length), trace_A(trace_length), trace_B(trace_length), trace_switching_prob(trace_length), log_posterior(trace_length);
@@ -466,7 +466,7 @@ List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0,
   NumericVector switching_prob(n-1);
   NumericMatrix marginal_distr_res(k, n);
   NumericMatrix emission_probs(k, n);
-
+  
   for(int iter = 1; iter <= max_iter; iter++){
     // forward step
     emission_probs = emission_probs_mat_discrete(y, B, k, n);
@@ -478,11 +478,11 @@ List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0,
       switching_probabilities(Q, switching_prob, k, n);
       update_marginal_distr(Q, marginal_distr_res, k, n);
     }
-
+    
     transition_mat_update0(pi, x, alpha, k);
     transition_mat_update1(A, x, alpha, k, n);
     if(!is_fixed_B) transition_mat_update2(B, x, y, alpha, k, s, n);
-
+    
     if((iter > burnin) && ((iter-1) % thin == 0)){
       index = (iter - burnin - 1)/thin;
       save_current_iteration(trace_x, trace_pi, trace_A, trace_B, log_posterior, trace_switching_prob,
@@ -493,7 +493,7 @@ List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0,
   // scale marginal distribution estimates
   arma::mat out(marginal_distr_res.begin(), k, n, false);
   out /= (float) (max_iter - burnin);
-
+  
   return List::create(Rcpp::Named("trace_x") = trace_x,
                       Rcpp::Named("trace_pi") = trace_pi,
                       Rcpp::Named("trace_A") = trace_A,
@@ -536,11 +536,12 @@ double crossover_likelihood(const arma::ivec& x, const arma::ivec& y, int t, int
   if((t == 0) || (t == n)){
     return 1.0;
   } else{
-    double num = Ax(x[t-1]-1, y[t]-1) * Ay(y[t-1]-1, x[t]-1);
+    double num = Ax(y[t-1]-1, x[t]-1) * Ay(x[t-1]-1, y[t]-1);
     double denom = Ax(x[t-1]-1, x[t]-1) * Ay(y[t-1]-1, y[t]-1) + 1.0e-15;
     return num / denom;
   }
 }
+
 
 void uniform_crossover(arma::ivec& x, arma::ivec& y, int n){
   IntegerVector possible_values = seq_len(n+1);
@@ -552,6 +553,16 @@ void nonuniform_crossover(arma::ivec& x, arma::ivec& y, NumericVector& probs, in
   IntegerVector possible_values = seq_len(n+1);
   int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, probs));
   crossover(x, y, m-1);
+}
+
+void nonuniform_crossover2(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n){
+  IntegerVector possible_values = seq_len((n+1));
+  int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, probs));
+  if(m <= n+1){
+    crossover(x, y, m-1);
+  } else{
+    crossover(y, x, m-1-n-1);
+  }
 }
 
 // void double_crossover(arma::ivec& x, arma::ivec& y, int n){
@@ -586,11 +597,11 @@ void scale_marginal_distr(NumericMatrix marginal_distr_res, int k, int n, int ma
 //' @export
 // [[Rcpp::export]]
 List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s, int n, 
-              int max_iter, int burnin, int thin, 
-              bool estimate_marginals, bool fixed_pars, bool parallel_tempering, bool crossovers, 
-              NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericVector mu, NumericVector sigma2, 
-              IntegerVector which_chains, IntegerVector subsequence){
-
+                       int max_iter, int burnin, int thin, 
+                       bool estimate_marginals, bool fixed_pars, bool parallel_tempering, bool crossovers, 
+                       NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericVector mu, NumericVector sigma2, 
+                       IntegerVector which_chains, IntegerVector subsequence){
+  
   // initialise ensemble of n_chains
   Ensemble_Gaussian ensemble(n_chains, k, s, n, alpha, fixed_pars);
   
@@ -604,17 +615,17 @@ List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s
   if(parallel_tempering){
     ensemble.activate_parallel_tempering(temperatures);
   }
-
+  
   int index;
   int n_chains_out = which_chains.size();
   int trace_length = (max_iter - burnin + (thin - 1)) / thin;
   int list_length = n_chains_out * trace_length;
   List tr_x(list_length), tr_pi(list_length), tr_A(list_length), tr_mu(list_length), tr_sigma2(list_length), tr_alpha(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length);
-
+  
   for(int iter = 1; iter <= max_iter; iter++){
     ensemble.update_x(y, estimate_marginals && (iter > burnin));
     ensemble.update_pars(y);
-
+    
     if(crossovers && (iter > swaps_burnin) && (iter % swaps_freq == 0)){
       ensemble.do_crossovers(n_crossovers);
       ensemble.update_pars(y);
@@ -631,10 +642,10 @@ List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s
     }
     if(iter % 1000 == 0) printf("iter %d\n", iter);
   }
-
+  
   ensemble.scale_marginals(max_iter, burnin);
   ListOf<NumericMatrix> tr_marginal_distr = ensemble.get_copy_of_marginals(which_chains);
-
+  
   return List::create(Rcpp::Named("trace_x") = tr_x,
                       Rcpp::Named("trace_pi") = tr_pi,
                       Rcpp::Named("trace_A") = tr_A,
@@ -646,7 +657,7 @@ List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s
                       Rcpp::Named("switching_prob") = tr_switching_prob,
                       Rcpp::Named("marginal_distr") = tr_marginal_distr, 
                       Rcpp::Named("acceptance_ratio") = ensemble.get_acceptance_ratio());
-
+  
 }
 
 //' @export

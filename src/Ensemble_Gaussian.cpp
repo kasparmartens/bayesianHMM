@@ -61,9 +61,9 @@ void Ensemble_Gaussian::scale_marginals(int max_iter, int burnin){
 // }
 
 void Ensemble_Gaussian::do_crossover(){
-  IntegerVector selected_chains = sample_helper(n_chains, 2);
+  IntegerVector selected_chains = sample_helper(n_chains-1, 1);
   int i = selected_chains[0]-1;
-  int j = selected_chains[1]-1;
+  int j = i+1;
   // create shortcuts u and v such that
   // (u, v) <- uniform_crossover(...)
   arma::ivec u(chains[i].get_x_memptr(), n, false);
@@ -74,13 +74,45 @@ void Ensemble_Gaussian::do_crossover(){
     uniform_crossover(v, u, n);
   }
   // consider all crossovers of u and v
-  NumericVector probs(n+1);
-  for(int t=0; t<n+1; t++){
+  NumericVector log_probs((n+1));
+  // temporary variables
+  NumericMatrix emissions_i = chains[i].get_emission_probs() + 1.0e-15;
+  NumericMatrix emissions_j = chains[j].get_emission_probs() + 1.0e-15;
+  double beta_i = chains[i].get_inv_temperature();
+  double beta_j = chains[j].get_inv_temperature();
+  double log_cumprod_x = 0.0;
+  double log_cumprod_y = 0.0; 
+  double tmp0, tmp1, tmp2;
+  int t0;
+  // for t = 0
+  log_probs[0] = 0.0;
+  for(int t=1; t<n+1; t++){
     // compute the likelihood term
-    probs[t] = crossover_likelihood(u, v, t, n, chains[i].get_A(), chains[j].get_A());
+    tmp0 = log(crossover_likelihood(u, v, t, n, chains[i].get_A(), chains[j].get_A()));
+    log_cumprod_x += tmp0;
+    // switching u[t] and v[t]
+    t0 = t-1;
+    tmp1 = beta_i * (log(emissions_i(v[t0]-1, t0)) - log(emissions_i(u[t0]-1, t0))); //pow(emissions_i(v[t]-1, t) / emissions_i(u[t]-1, t), beta_i);
+    tmp2 = beta_j * (log(emissions_j(u[t0]-1, t0)) - log(emissions_j(v[t0]-1, t0))); //pow(emissions_j(u[t]-1, t) / emissions_j(v[t]-1, t), beta_j);
+    log_cumprod_y += tmp1 + tmp2;
+    log_probs[t] = log_cumprod_x + log_cumprod_y;
+    //printf("probs[%d] = %f", t, probs[t]);
   }
+  // log_probs[0+n+1] = log_probs[n];
+  // for(int t=1; t<n+1; t++){
+  //   // compute the likelihood term
+  //   tmp0 = log(crossover_likelihood(u, v, t, n, chains[i].get_A(), chains[j].get_A()));
+  //   log_cumprod_x += tmp0;
+  //   // switching u[t] and v[t]
+  //   t0 = t-1;
+  //   tmp1 = beta_i * (log(emissions_i(u[t0]-1, t0)) - log(emissions_i(v[t0]-1, t0))); //pow(emissions_i(v[t]-1, t) / emissions_i(u[t]-1, t), beta_i);
+  //   tmp2 = beta_j * (log(emissions_j(v[t0]-1, t0)) - log(emissions_j(u[t0]-1, t0))); //pow(emissions_j(u[t]-1, t) / emissions_j(v[t]-1, t), beta_j);
+  //   log_cumprod_y += tmp1 + tmp2;
+  //   log_probs[t+n+1] = log_cumprod_x + log_cumprod_y;
+  // }
+  NumericVector probs = exp(log_probs - max(log_probs));
   // pick one of the crossovers and accept this move
-  nonuniform_crossover(u, v, probs, n);
+  nonuniform_crossover2(u, v, probs, n);
 }
 
 void Ensemble_Gaussian::do_crossovers(int n_crossovers){
