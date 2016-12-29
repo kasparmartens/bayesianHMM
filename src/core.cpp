@@ -3,6 +3,7 @@
 #include "Ensemble_Gaussian.h"
 #include "Ensemble_Discrete.h"
 #include <RcppArmadilloExtensions/sample.h>
+#include <Rcpp/Benchmark/Timer.h>
 using namespace Rcpp;
 using namespace std;
 
@@ -616,32 +617,48 @@ List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s
     ensemble.activate_parallel_tempering(temperatures);
   }
   
+  // initialise x
+  ensemble.update_x(y, false);
+  
   int index;
   int n_chains_out = which_chains.size();
   int trace_length = (max_iter - burnin + (thin - 1)) / thin;
   int list_length = n_chains_out * trace_length;
   List tr_x(list_length), tr_pi(list_length), tr_A(list_length), tr_mu(list_length), tr_sigma2(list_length), tr_alpha(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length);
   
+  Timer timer;
+  nanotime_t t0, t1, t2, t3;
+  NumericVector comp_times(3);
   for(int iter = 1; iter <= max_iter; iter++){
-    ensemble.update_x(y, estimate_marginals && (iter > burnin));
+    t0 = timer.now();
     ensemble.update_pars(y);
+    t1 = timer.now();
+    ensemble.update_x(y, estimate_marginals && (iter > burnin));
+    t2 = timer.now();
     
-    if(crossovers && (iter > swaps_burnin) && (iter % swaps_freq == 0)){
+    if(crossovers && (iter > swaps_burnin) && ((iter-1) % swaps_freq == 0)){
       ensemble.do_crossovers(n_crossovers);
-      ensemble.update_pars(y);
     }
-    if(parallel_tempering && (iter > swaps_burnin) && (iter % swaps_freq == 0)){
+    if(parallel_tempering && (iter > swaps_burnin) && ((iter-1) % swaps_freq == 0)){
       if(swap_type == 0) ensemble.swap_everything();
       if(swap_type == 1) ensemble.swap_pars();
       if(swap_type == 2) ensemble.swap_x();
     }
+    t3 = timer.now();
     
     if((iter > burnin) && ((iter-1) % thin == 0)){
       index = (iter - burnin - 1)/thin;
       ensemble.copy_values_to_trace(which_chains, tr_x, tr_pi, tr_A, tr_mu, tr_sigma2, tr_alpha, tr_loglik, tr_loglik_cond, tr_switching_prob, index, subsequence);
+      comp_times += 1.0/trace_length * NumericVector::create(t1-t0, t2-t1, t3-t2);
+      comp_times[0] += 1.0/trace_length * (t1 - t0);
+      comp_times[1] += 1.0/trace_length * (t2 - t1);
+      if((iter-1) % swaps_freq == 0){
+        comp_times[2] += 1.0/trace_length * swaps_freq * (t3 - t2);
+      }
     }
     if(iter % 1000 == 0) printf("iter %d\n", iter);
   }
+  comp_times.attr("names") = CharacterVector::create("update pars", "update x", "swap/crossover");
   
   ensemble.scale_marginals(max_iter, burnin);
   ListOf<NumericMatrix> tr_marginal_distr = ensemble.get_copy_of_marginals(which_chains);
@@ -656,7 +673,8 @@ List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s
                       Rcpp::Named("log_posterior_cond") = tr_loglik_cond,
                       Rcpp::Named("switching_prob") = tr_switching_prob,
                       Rcpp::Named("marginal_distr") = tr_marginal_distr, 
-                      Rcpp::Named("acceptance_ratio") = ensemble.get_acceptance_ratio());
+                      Rcpp::Named("acceptance_ratio") = ensemble.get_acceptance_ratio(), 
+                      Rcpp::Named("timer") = comp_times);
   
 }
 
@@ -682,32 +700,48 @@ List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s
     ensemble.activate_parallel_tempering(temperatures);
   }
   
+  // initialise x
+  ensemble.update_x(y, false);
+  
   int index;
   int n_chains_out = which_chains.size();
   int trace_length = (max_iter - burnin + (thin - 1)) / thin;
   int list_length = n_chains_out * trace_length;
   List tr_x(list_length), tr_pi(list_length), tr_A(list_length), tr_B(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length), tr_alpha(list_length);
   
+  Timer timer;
+  nanotime_t t0, t1, t2, t3;
+  NumericVector comp_times(3);
   for(int iter = 1; iter <= max_iter; iter++){
-    ensemble.update_x(y, estimate_marginals && (iter > burnin));
+    t0 = timer.now();
     ensemble.update_pars(y);
+    t1 = timer.now();
+    ensemble.update_x(y, estimate_marginals && (iter > burnin));
+    t2 = timer.now();
     
-    if(crossovers && (iter > swaps_burnin) && (iter % swaps_freq == 0)){
+    if(crossovers && (iter > swaps_burnin) && ((iter-1) % swaps_freq == 0)){
       ensemble.do_crossovers(n_crossovers);
-      ensemble.update_pars(y);
     }
-    if(parallel_tempering && (iter > swaps_burnin) && (iter % swaps_freq == 0)){
+    if(parallel_tempering && (iter > swaps_burnin) && ((iter-1) % swaps_freq == 0)){
       if(swap_type == 0) ensemble.swap_everything();
       if(swap_type == 1) ensemble.swap_pars();
       if(swap_type == 2) ensemble.swap_x();
     }
+    t3 = timer.now();
     
     if((iter > burnin) && ((iter-1) % thin == 0)){
       index = (iter - burnin - 1)/thin;
       ensemble.copy_values_to_trace(which_chains, tr_x, tr_pi, tr_A, tr_B, tr_alpha, tr_loglik, tr_loglik_cond, tr_switching_prob, index, subsequence);
+      comp_times += 1.0/trace_length * NumericVector::create(t1-t0, t2-t1, t3-t2);
+      comp_times[0] += 1.0/trace_length * (t1 - t0);
+      comp_times[1] += 1.0/trace_length * (t2 - t1);
+      if((iter-1) % swaps_freq == 0){
+        comp_times[2] += 1.0/trace_length * swaps_freq * (t3 - t2);
+      }
     }
     if(iter % 1000 == 0) printf("iter %d\n", iter);
   }
+  comp_times.attr("names") = CharacterVector::create("update pars", "update x", "swap/crossover");
   
   ensemble.scale_marginals(max_iter, burnin);
   ListOf<NumericMatrix> tr_marginal_distr = ensemble.get_copy_of_marginals(which_chains);
@@ -721,7 +755,8 @@ List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s
                       Rcpp::Named("log_posterior_cond") = tr_loglik_cond,
                       Rcpp::Named("switching_prob") = tr_switching_prob,
                       Rcpp::Named("marginal_distr") = tr_marginal_distr, 
-                      Rcpp::Named("acceptance_ratio") = ensemble.get_acceptance_ratio());
+                      Rcpp::Named("acceptance_ratio") = ensemble.get_acceptance_ratio(), 
+                      Rcpp::Named("timer") = comp_times);
   
 }
 
