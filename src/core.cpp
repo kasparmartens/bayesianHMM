@@ -600,7 +600,7 @@ void scale_marginal_distr(NumericMatrix marginal_distr_res, int k, int n, int ma
 List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s, int n, 
                        int max_iter, int burnin, int thin, 
                        bool estimate_marginals, bool fixed_pars, bool parallel_tempering, bool crossovers, 
-                       NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericVector mu, NumericVector sigma2, 
+                       NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, NumericVector mu, NumericVector sigma2, 
                        IntegerVector which_chains, IntegerVector subsequence){
   
   // initialise ensemble of n_chains
@@ -637,7 +637,7 @@ List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s
     t2 = timer.now();
     
     if(crossovers && (iter > swaps_burnin) && ((iter-1) % swaps_freq == 0)){
-      ensemble.do_crossovers(n_crossovers);
+      ensemble.do_crossover();
     }
     if(parallel_tempering && (iter > swaps_burnin) && ((iter-1) % swaps_freq == 0)){
       if(swap_type == 0) ensemble.swap_everything();
@@ -683,7 +683,7 @@ List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s
 List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s, int n, 
                        int max_iter, int burnin, int thin, 
                        bool estimate_marginals, bool fixed_pars, bool parallel_tempering, bool crossovers, 
-                       NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, int n_crossovers, NumericMatrix B, 
+                       NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, NumericMatrix B, 
                        IntegerVector which_chains, IntegerVector subsequence){
   
   // initialise ensemble of n_chains
@@ -720,7 +720,7 @@ List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s
     t2 = timer.now();
     
     if(crossovers && (iter > swaps_burnin) && ((iter-1) % swaps_freq == 0)){
-      ensemble.do_crossovers(n_crossovers);
+      ensemble.do_crossover();
     }
     if(parallel_tempering && (iter > swaps_burnin) && ((iter-1) % swaps_freq == 0)){
       if(swap_type == 0) ensemble.swap_everything();

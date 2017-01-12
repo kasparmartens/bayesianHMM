@@ -96,12 +96,6 @@ void Ensemble_Discrete::do_crossover(){
 }
 
 
-void Ensemble_Discrete::do_crossovers(int n_crossovers){
-  for(int i=0; i<n_crossovers; i++){
-    do_crossover();
-  }
-}
-
 void Ensemble_Discrete::swap_everything(){
   // pick chains j and j+1, and propose to swap parameters
   int j = as<int>(sample_helper(n_chains-1, 1)) - 1;

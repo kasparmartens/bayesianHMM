@@ -33,8 +33,6 @@ public:
   
   void do_crossover();
   
-  void do_crossovers(int n_crossovers);
-  
   void swap_everything();
   
   void swap_pars();
