@@ -16,5 +16,8 @@ Depends:
     gtools,
     ggplot2,
     reshape2,
-    dplyr
+    dplyr, 
+    grid, 
+    gridExtra, 
+    gtable
 RoxygenNote: 5.0.1
