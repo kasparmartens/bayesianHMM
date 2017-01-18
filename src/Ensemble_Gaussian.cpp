@@ -35,6 +35,12 @@ void Ensemble_Gaussian::initialise_pars(NumericVector mu, NumericVector sigma2){
   }
 }
 
+void Ensemble_Gaussian::initialise_pars(NumericVector mu, NumericVector sigma2, IntegerVector x){
+  for(int i=0; i<n_chains; i++){
+    chains[i].initialise_pars(mu, sigma2, x);
+  }
+}
+
 void Ensemble_Gaussian::update_pars(NumericVector& y){
   for(int i=0; i<n_chains; i++){
     chains[i].update_pars(y);
@@ -74,7 +80,7 @@ void Ensemble_Gaussian::do_crossover(){
     uniform_crossover(v, u, n);
   }
   // consider all crossovers of u and v
-  NumericVector log_probs((n+1));
+  NumericVector log_probs(2*n);
   // temporary variables
   NumericMatrix emissions_i = chains[i].get_emission_probs() + 1.0e-15;
   NumericMatrix emissions_j = chains[j].get_emission_probs() + 1.0e-15;
@@ -83,33 +89,28 @@ void Ensemble_Gaussian::do_crossover(){
   double log_cumprod_x = 0.0;
   double log_cumprod_y = 0.0; 
   double tmp0, tmp1, tmp2;
-  int t0;
-  // for t = 0
-  log_probs[0] = 0.0;
-  for(int t=1; t<n+1; t++){
+  for(int t=0; t<n; t++){
     // compute the likelihood term
-    tmp0 = log(crossover_likelihood(u, v, t, n, chains[i].get_A(), chains[j].get_A()));
+    tmp0 = log(crossover_likelihood(u, v, t+1, n, chains[i].get_A(), chains[j].get_A()));
     log_cumprod_x += tmp0;
     // switching u[t] and v[t]
-    t0 = t-1;
-    tmp1 = beta_i * (log(emissions_i(v[t0]-1, t0)) - log(emissions_i(u[t0]-1, t0))); //pow(emissions_i(v[t]-1, t) / emissions_i(u[t]-1, t), beta_i);
-    tmp2 = beta_j * (log(emissions_j(u[t0]-1, t0)) - log(emissions_j(v[t0]-1, t0))); //pow(emissions_j(u[t]-1, t) / emissions_j(v[t]-1, t), beta_j);
+    tmp1 = beta_i * (log(emissions_i(v[t]-1, t)) - log(emissions_i(u[t]-1, t))); 
+    tmp2 = beta_j * (log(emissions_j(u[t]-1, t)) - log(emissions_j(v[t]-1, t))); 
     log_cumprod_y += tmp1 + tmp2;
     log_probs[t] = log_cumprod_x + log_cumprod_y;
     //printf("probs[%d] = %f", t, probs[t]);
   }
-  // log_probs[0+n+1] = log_probs[n];
-  // for(int t=1; t<n+1; t++){
-  //   // compute the likelihood term
-  //   tmp0 = log(crossover_likelihood(u, v, t, n, chains[i].get_A(), chains[j].get_A()));
-  //   log_cumprod_x += tmp0;
-  //   // switching u[t] and v[t]
-  //   t0 = t-1;
-  //   tmp1 = beta_i * (log(emissions_i(u[t0]-1, t0)) - log(emissions_i(v[t0]-1, t0))); //pow(emissions_i(v[t]-1, t) / emissions_i(u[t]-1, t), beta_i);
-  //   tmp2 = beta_j * (log(emissions_j(v[t0]-1, t0)) - log(emissions_j(u[t0]-1, t0))); //pow(emissions_j(u[t]-1, t) / emissions_j(v[t]-1, t), beta_j);
-  //   log_cumprod_y += tmp1 + tmp2;
-  //   log_probs[t+n+1] = log_cumprod_x + log_cumprod_y;
-  // }
+  for(int t=0; t<n; t++){
+    // compute the likelihood term
+    tmp0 = log(crossover_likelihood(v, u, t+1, n, chains[i].get_A(), chains[j].get_A()));
+    log_cumprod_x += tmp0;
+    // switching u[t] and v[t]
+    tmp1 = beta_i * (log(emissions_i(u[t]-1, t)) - log(emissions_i(v[t]-1, t))); 
+    tmp2 = beta_j * (log(emissions_j(v[t]-1, t)) - log(emissions_j(u[t]-1, t))); 
+    log_cumprod_y += tmp1 + tmp2;
+    log_probs[t+n] = log_cumprod_x + log_cumprod_y;
+    //printf("probs[%d] = %f", t, probs[t]);
+  }
   NumericVector probs = exp(log_probs - max(log_probs));
   // pick one of the crossovers and accept this move
   nonuniform_crossover2(u, v, probs, n);

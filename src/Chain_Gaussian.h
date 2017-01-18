@@ -53,6 +53,24 @@ class Chain_Gaussian : public Chain {
       sigma2 = clone(sigma2_);
     }
     
+    void initialise_pars(NumericVector mu_, NumericVector sigma2_, IntegerVector x_){
+      // draw pi from the prior
+      NumericVector pi_pars(k);
+      initialise_const_vec(pi_pars, alpha, k);
+      rdirichlet_vec(pi_pars, pi, k);
+      // draw A from the prior
+      transition_mat_update1(A, A_pars, x, A_gamma, alpha, k, 0);
+      // pars are fixed
+      mu = clone(mu_);
+      sigma2 = clone(sigma2_);
+      for(int t=0; t<n; t++){
+        x[t] = x_[t];
+      }
+      // update pi, A
+      transition_mat_update0(pi, x, alpha, k);
+      transition_mat_update1(A, A_pars, x, A_gamma, alpha, k, n);
+    }
+    
     void update_pars(NumericVector& y){
       transition_mat_update0(pi, x, alpha, k);
       transition_mat_update1(A, A_pars, x, A_gamma, alpha, k, n);

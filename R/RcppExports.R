@@ -17,8 +17,8 @@ gibbs_sampling_fast <- function(y, alpha, k, s, n, max_iter, burnin, thin, margi
 }
 
 #' @export
-ensemble_gaussian <- function(n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, fixed_pars, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, mu, sigma2, which_chains, subsequence) {
-    .Call('ensembleHMM_ensemble_gaussian', PACKAGE = 'ensembleHMM', n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, fixed_pars, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, mu, sigma2, which_chains, subsequence)
+ensemble_gaussian <- function(n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, fixed_pars, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, mu, sigma2, which_chains, subsequence, x) {
+    .Call('ensembleHMM_ensemble_gaussian', PACKAGE = 'ensembleHMM', n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, fixed_pars, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, mu, sigma2, which_chains, subsequence, x)
 }
 
 #' @export

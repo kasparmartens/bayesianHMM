@@ -545,24 +545,26 @@ double crossover_likelihood(const arma::ivec& x, const arma::ivec& y, int t, int
 
 
 void uniform_crossover(arma::ivec& x, arma::ivec& y, int n){
-  IntegerVector possible_values = seq_len(n+1);
+  IntegerVector possible_values = seq_len(n);
   int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
-  crossover(x, y, m-1);
+  crossover(x, y, m);
 }
 
 void nonuniform_crossover(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n){
-  IntegerVector possible_values = seq_len(n+1);
+  IntegerVector possible_values = seq_len(n);
   int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, probs));
-  crossover(x, y, m-1);
+  crossover(x, y, m);
 }
 
 void nonuniform_crossover2(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n){
-  IntegerVector possible_values = seq_len((n+1));
+  IntegerVector possible_values = seq_len(2*n);
   int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, probs));
-  if(m <= n+1){
-    crossover(x, y, m-1);
+  if(m <= n){
+    //printf("normal crossover, m = %d", m);
+    crossover(x, y, m);
   } else{
-    crossover(y, x, m-1-n-1);
+    //printf("flipped crossover, m-n = %d", m-n);
+    crossover(y, x, m-n);
   }
 }
 
@@ -601,24 +603,28 @@ List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s
                        int max_iter, int burnin, int thin, 
                        bool estimate_marginals, bool fixed_pars, bool parallel_tempering, bool crossovers, 
                        NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, NumericVector mu, NumericVector sigma2, 
-                       IntegerVector which_chains, IntegerVector subsequence){
+                       IntegerVector which_chains, IntegerVector subsequence, IntegerVector x){
   
   // initialise ensemble of n_chains
   Ensemble_Gaussian ensemble(n_chains, k, s, n, alpha, fixed_pars);
   
-  // initialise transition matrices for all chains in the ensemble
-  ensemble.initialise_pars();
-  if(fixed_pars){
+  // initialise transition matrices and x latent sequences for all chains
+  if((mu.size() != 0) & (x.size() != 0)){
+    ensemble.initialise_pars(mu, sigma2, x);
+  } else if(mu.size() != 0){
     ensemble.initialise_pars(mu, sigma2);
+    // initialise x
+    ensemble.update_x(y, false);
+  } else{
+    ensemble.initialise_pars();
+    // initialise x
+    ensemble.update_x(y, false);
   }
   
   // parallel tempering initilisation
   if(parallel_tempering){
     ensemble.activate_parallel_tempering(temperatures);
   }
-  
-  // initialise x
-  ensemble.update_x(y, false);
   
   int index;
   int n_chains_out = which_chains.size();
