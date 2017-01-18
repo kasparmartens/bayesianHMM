@@ -35,21 +35,58 @@ visualise_discrete_obs = function(hmm_obs){
 }
 
 #' @export
-visualise_traces_of_x = function(res_list, names_res, which_chain = 1, subsample = 2, subsequence = NULL){
+visualise_traces_of_x = function(res_list, names_res, which_chain = 1, subsample = 2, subsequence = NULL, all_chains = FALSE){
   if(is.null(subsequence)) subsequence = 1:ncol(res_list[[1]]$trace_x[[1]])
-  temp = lapply(1:length(res_list), function(i){
-    tr = res_list[[i]]$trace_x[[which_chain]]
-    tr_sub = tr[seq(1, nrow(tr), subsample), subsequence, drop=FALSE]
-    rownames(tr_sub) = seq(1, nrow(tr), subsample)
-    x.m = melt(tr_sub)
-    x.m %>%
-      mutate(value = factor(value), 
-             type = names_res[i])
-  })
-  df = do.call("rbind", temp) %>%
-    mutate(type = factor(type, levels = names_res))
+  if(all_chains){
+    temp = lapply(1:length(res_list[[1]]$trace_x), function(i){
+      tr = res_list[[1]]$trace_x[[i]]
+      tr_sub = tr[seq(1, nrow(tr), subsample), subsequence, drop=FALSE]
+      rownames(tr_sub) = seq(1, nrow(tr), subsample)
+      x.m = melt(tr_sub)
+      x.m %>%
+        mutate(value = factor(value), 
+               type = paste(names_res, "chain", i, sep="_"))
+    })
+    df = do.call("rbind", temp) %>%
+      mutate(type = factor(type))
+  }
+  else{
+    temp = lapply(1:length(res_list), function(i){
+      tr = res_list[[i]]$trace_x[[which_chain]]
+      tr_sub = tr[seq(1, nrow(tr), subsample), subsequence, drop=FALSE]
+      rownames(tr_sub) = seq(1, nrow(tr), subsample)
+      x.m = melt(tr_sub)
+      x.m %>%
+        mutate(value = factor(value), 
+               type = names_res[i])
+    })
+    df = do.call("rbind", temp) %>%
+      mutate(type = factor(type, levels = names_res))
+  }
   p = ggplot(df, aes(Var2, Var1)) + geom_tile(aes(fill=value)) + 
     theme_bw() + xlab("t") + ylab("Iteration") + facet_grid(. ~ type) + 
     scale_fill_brewer(palette="Accent")
   return(p)
+}
+
+#' @export
+plot_logposterior = function(obj, which_chain = 1){
+  x = obj$log_posterior[[which_chain]]
+  df = data.frame(x = x, iter = obj$iter)
+  ggplot(df, aes(iter, x)) + 
+    geom_line() + theme_bw() + 
+    ylab("log-posterior")
+}
+
+#' @export
+plot_logposteriors = function(lst, names_res, which_chain = 1){
+  df = do.call("rbind", lapply(seq_along(lst), function(i){
+    obj = lst[[i]]
+    x = obj$log_posterior[[which_chain]]
+    data.frame(x = x, iter = obj$iter, type=names_res[i])
+  }))
+  ggplot(df, aes(iter, x)) + 
+    geom_line() + facet_wrap(~type)+
+    theme_bw() + 
+    ylab("log-posterior")
 }
