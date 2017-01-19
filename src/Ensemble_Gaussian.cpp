@@ -2,17 +2,16 @@
 
 using namespace Rcpp;
 
-Ensemble_Gaussian::Ensemble_Gaussian(int n_chains_, int k_, int s_, int n_, double alpha, bool is_fixed_B) : 
+Ensemble_Gaussian::Ensemble_Gaussian(int n_chains_, int k_, int n_, double alpha, bool is_fixed_B) : 
   chains(std::vector<Chain_Gaussian>()) {
   do_parallel_tempering = false;
   n_chains = n_chains_;
   k = k_;
-  s = s_;
   n = n_;
   n_accepts = 0;
   n_total = 0;
   for(int i=0; i<n_chains; i++){
-    chains.push_back(Chain_Gaussian(k_, s_, n_, alpha, is_fixed_B));
+    chains.push_back(Chain_Gaussian(k_, n_, alpha, is_fixed_B));
   }
 }
 
@@ -139,7 +138,7 @@ void Ensemble_Gaussian::swap_pars(){
   int j = as<int>(sample_helper(n_chains-1, 1)) - 1;
   double accept_prob = MH_acceptance_prob_swap_pars(chains[j].get_pi(), chains[j].get_A(), chains[j].get_emission_probs(), 
                                                     chains[j+1].get_pi(), chains[j+1].get_A(), chains[j+1].get_emission_probs(), 
-                                                    chains[j].get_inv_temperature(), chains[j+1].get_inv_temperature(), k, s, n);
+                                                    chains[j].get_inv_temperature(), chains[j+1].get_inv_temperature(), k, n);
   if(R::runif(0,1) < accept_prob){
     // std::swap(chains[j].get_B(), chains[j+1].get_B());
     std::swap(chains[j].get_mu(), chains[j+1].get_mu());

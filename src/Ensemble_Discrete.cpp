@@ -117,7 +117,7 @@ void Ensemble_Discrete::swap_pars(){
   int j = as<int>(sample_helper(n_chains-1, 1)) - 1;
   double accept_prob = MH_acceptance_prob_swap_pars(chains[j].get_pi(), chains[j].get_A(), chains[j].get_emission_probs(), 
                                                     chains[j+1].get_pi(), chains[j+1].get_A(), chains[j+1].get_emission_probs(), 
-                                                    chains[j].get_inv_temperature(), chains[j+1].get_inv_temperature(), k, s, n);
+                                                    chains[j].get_inv_temperature(), chains[j+1].get_inv_temperature(), k, n);
   if(R::runif(0,1) < accept_prob){
     std::swap(chains[j].get_B(), chains[j+1].get_B());
     std::swap(chains[j].get_A(), chains[j+1].get_A());

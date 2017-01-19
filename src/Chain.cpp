@@ -1,8 +1,7 @@
 #include "Chain.h"
 
-Chain::Chain(int k_, int s_, int n_, double alpha_, bool is_fixed_B_){
+Chain::Chain(int k_, int n_, double alpha_, bool is_fixed_B_){
   k = k_;
-  s = s_;
   n = n_;
   is_fixed_B = is_fixed_B_;
   is_tempered = false;
@@ -33,7 +32,7 @@ Chain::Chain(int k_, int s_, int n_, double alpha_, bool is_fixed_B_){
 
 
 double Chain::calculate_loglik_marginal(){
-  return marginal_loglikelihood(pi, A, emission_probs, 1.0, k, s, n);
+  return marginal_loglikelihood(pi, A, emission_probs, 1.0, k, n);
 }
 
 void Chain::scale_marginals(int max_iter, int burnin){

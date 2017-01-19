@@ -340,7 +340,7 @@ double loglikelihood_x(arma::ivec& x, NumericVector&pi, NumericMatrix& A, int n)
   return loglik;
 }
 
-double marginal_loglikelihood(NumericVector pi, NumericMatrix A, NumericMatrix emission_probs, double inv_temp, int k, int s, int n){
+double marginal_loglikelihood(NumericVector pi, NumericMatrix A, NumericMatrix emission_probs, double inv_temp, int k, int n){
   double loglik = 0.0;
   NumericMatrix PP(k, k);
   NumericVector b;
@@ -375,11 +375,11 @@ double MH_acceptance_prob_swap_everything(arma::ivec& x1, NumericMatrix& emissio
 
 double MH_acceptance_prob_swap_pars(NumericVector& pi1, NumericMatrix& A1, NumericMatrix& emission_probs1, 
                                     NumericVector& pi2, NumericMatrix& A2, NumericMatrix& emission_probs2, 
-                                    double inv_temp1, double inv_temp2, int k, int s, int n){
-  double ll_12 = marginal_loglikelihood(pi1, A1, emission_probs1, inv_temp2, k, s, n);
-  double ll_21 = marginal_loglikelihood(pi2, A2, emission_probs2, inv_temp1, k, s, n);
-  double ll_11 = marginal_loglikelihood(pi1, A1, emission_probs1, inv_temp1, k, s, n);
-  double ll_22 = marginal_loglikelihood(pi2, A2, emission_probs2, inv_temp2, k, s, n);
+                                    double inv_temp1, double inv_temp2, int k, int n){
+  double ll_12 = marginal_loglikelihood(pi1, A1, emission_probs1, inv_temp2, k, n);
+  double ll_21 = marginal_loglikelihood(pi2, A2, emission_probs2, inv_temp1, k, n);
+  double ll_11 = marginal_loglikelihood(pi1, A1, emission_probs1, inv_temp1, k, n);
+  double ll_22 = marginal_loglikelihood(pi2, A2, emission_probs2, inv_temp2, k, n);
   double ratio = exp(ll_12 + ll_21 - ll_11 - ll_22);
   return ratio;
 }
@@ -644,14 +644,14 @@ IntegerMatrix calculate_hamming_dist(IntegerMatrix mapping){
 
 //' @export
 // [[Rcpp::export]]
-List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s, int n, 
+List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int n, 
                        int max_iter, int burnin, int thin, 
                        bool estimate_marginals, bool fixed_pars, bool parallel_tempering, bool crossovers, 
                        NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, NumericVector mu, NumericVector sigma2, 
                        IntegerVector which_chains, IntegerVector subsequence, IntegerVector x){
   
   // initialise ensemble of n_chains
-  Ensemble_Gaussian ensemble(n_chains, k, s, n, alpha, fixed_pars);
+  Ensemble_Gaussian ensemble(n_chains, k, n, alpha, fixed_pars);
   
   // initialise transition matrices and x latent sequences for all chains
   if((mu.size() != 0) & (x.size() != 0)){

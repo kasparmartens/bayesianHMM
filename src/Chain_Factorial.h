@@ -15,7 +15,7 @@ class Chain_Factorial : public Chain {
   IntegerMatrix mapping, hamming_distances;
   
 public:
-  Chain_Factorial(int K, int k, int n, double alpha) : Chain(k, s, n, alpha, true){
+  Chain_Factorial(int K, int k, int n, double alpha) : Chain(k, n, alpha, true){
     //mu = NumericMatrix(k);
     a_sigma = 0.01;
     b_sigma = 0.01;

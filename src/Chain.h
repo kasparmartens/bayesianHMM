@@ -7,7 +7,7 @@ using namespace Rcpp;
 
 class Chain {
   protected:
-    int k, s, n;
+    int k, n;
     NumericVector pi, switching_prob;
     NumericMatrix A, A_pars, A_gamma, marginal_distr, emission_probs, emission_probs_tempered;
     arma::ivec x;
@@ -17,7 +17,7 @@ class Chain {
     ListOf<NumericMatrix> P, Q;
     
   public:
-    Chain(int K, int S, int N, double alpha_, bool is_fixed_B_);
+    Chain(int K, int N, double alpha_, bool is_fixed_B_);
     
     arma::ivec& get_x(){
       return x;

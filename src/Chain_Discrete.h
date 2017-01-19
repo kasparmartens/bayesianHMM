@@ -8,10 +8,12 @@ using namespace Rcpp;
 
 class Chain_Discrete : public Chain {
   NumericMatrix B;
+  int s;
 
   public:
-    Chain_Discrete(int k, int s, int n, double alpha, bool is_fixed_B) : Chain(k, s, n, alpha, is_fixed_B){
-      B = NumericMatrix(k, s);
+    Chain_Discrete(int k, int s_, int n, double alpha, bool is_fixed_B) : Chain(k, n, alpha, is_fixed_B){
+      B = NumericMatrix(k, s_);
+      s = s_;
     }
     
     NumericMatrix& get_B(){

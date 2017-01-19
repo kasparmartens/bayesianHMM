@@ -6,13 +6,13 @@
 using namespace Rcpp;
 
 class Ensemble_Gaussian{
-  int n_chains, k, s, n;
+  int n_chains, k, n;
   bool do_parallel_tempering;
   int n_accepts, n_total;
   std::vector<Chain_Gaussian> chains;
     
   public:
-    Ensemble_Gaussian(int K, int k, int s, int n, double alpha, bool is_fixed_B);
+    Ensemble_Gaussian(int K, int k, int n, double alpha, bool is_fixed_B);
     
     void activate_parallel_tempering(NumericVector temperatures);
     
