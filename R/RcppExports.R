@@ -17,6 +17,16 @@ gibbs_sampling_fast <- function(y, alpha, k, s, n, max_iter, burnin, thin, margi
 }
 
 #' @export
+decimal_to_binary_mapping <- function(K) {
+    .Call('ensembleHMM_decimal_to_binary_mapping', PACKAGE = 'ensembleHMM', K)
+}
+
+#' @export
+calculate_hamming_dist <- function(mapping) {
+    .Call('ensembleHMM_calculate_hamming_dist', PACKAGE = 'ensembleHMM', mapping)
+}
+
+#' @export
 ensemble_gaussian <- function(n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, fixed_pars, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, mu, sigma2, which_chains, subsequence, x) {
     .Call('ensembleHMM_ensemble_gaussian', PACKAGE = 'ensembleHMM', n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, fixed_pars, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, mu, sigma2, which_chains, subsequence, x)
 }
@@ -24,5 +34,10 @@ ensemble_gaussian <- function(n_chains, y, alpha, k, s, n, max_iter, burnin, thi
 #' @export
 ensemble_discrete <- function(n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, fixed_pars, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, B, which_chains, subsequence) {
     .Call('ensembleHMM_ensemble_discrete', PACKAGE = 'ensembleHMM', n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, fixed_pars, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, B, which_chains, subsequence)
+}
+
+#' @export
+FHMM <- function(n_chains, Y, mu, sigma, A, alpha, K, k, n, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x) {
+    .Call('ensembleHMM_FHMM', PACKAGE = 'ensembleHMM', n_chains, Y, mu, sigma, A, alpha, K, k, n, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x)
 }
 

@@ -2,6 +2,7 @@
 
 #include "Ensemble_Gaussian.h"
 #include "Ensemble_Discrete.h"
+#include "Chain_Factorial.h"
 #include <RcppArmadilloExtensions/sample.h>
 #include <Rcpp/Benchmark/Timer.h>
 using namespace Rcpp;
@@ -597,6 +598,48 @@ void scale_marginal_distr(NumericMatrix marginal_distr_res, int k, int n, int ma
   out /= (float) (max_iter - burnin);
 }
 
+void helper_binary_matrix(IntegerMatrix& A, int nrows, int ncols, int i, int start_col, int end_col){
+  int middle_col = start_col + (end_col - start_col)/2;
+  for(int j=start_col; j<middle_col; j++){
+    A(i, j) = 0;
+  }
+  for(int j=middle_col; j<end_col; j++){
+    A(i, j) = 1;
+  }
+  if((i+1) < nrows){
+    helper_binary_matrix(A, nrows, ncols, i+1, start_col, middle_col);
+    helper_binary_matrix(A, nrows, ncols, i+1, middle_col, end_col);
+  }
+}
+
+//' @export
+// [[Rcpp::export]]
+IntegerMatrix decimal_to_binary_mapping(int K){
+  int ncols = pow(2, K);
+  int nrows = K;
+  IntegerMatrix out(nrows, ncols);
+  helper_binary_matrix(out, nrows, ncols, 0, 0, ncols);
+  return out;
+}
+
+//' @export
+// [[Rcpp::export]]
+IntegerMatrix calculate_hamming_dist(IntegerMatrix mapping){
+  int K = mapping.nrow();
+  int ncols = mapping.ncol();
+  IntegerMatrix dist(ncols, ncols);
+  // for each pair of configurations calculate hamming distance
+  for(int j=0; j<ncols; j++){
+    for(int jj=0; jj<ncols; jj++){
+      for(int i=0; i<K; i++){
+        if(mapping(i, j) != mapping(i, jj)){
+          dist(j, jj) += 1;
+        }
+      }
+    }
+  }
+  return dist;
+}
 
 
 //' @export
@@ -764,6 +807,84 @@ List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s
                       Rcpp::Named("switching_prob") = tr_switching_prob,
                       Rcpp::Named("marginal_distr") = tr_marginal_distr, 
                       Rcpp::Named("acceptance_ratio") = ensemble.get_acceptance_ratio(), 
+                      Rcpp::Named("timer") = comp_times);
+  
+}
+
+//' @export
+// [[Rcpp::export]]
+List FHMM(int n_chains, NumericMatrix Y, NumericVector mu, double sigma, NumericMatrix A, double alpha, 
+          int K, int k, int n, 
+                       int max_iter, int burnin, int thin, 
+                       bool estimate_marginals, bool parallel_tempering, bool crossovers, 
+                       NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, 
+                       IntegerVector which_chains, IntegerVector subsequence, IntegerVector x){
+  
+  // initialise ensemble of n_chains
+  // Ensemble_Gaussian ensemble(n_chains, k, s, n, alpha, fixed_pars);
+  Chain_Factorial chain(K, k, n, alpha);
+  
+  // all parameters must be fixed, given as inputs
+  chain.initialise_pars(mu, sigma, A);
+  chain.update_emission_probs(Y);
+  
+  // now initialise x
+  chain.update_x();
+  chain.convert_x_to_X();
+  //print(chain.get_X());
+  
+  
+  // parallel tempering initilisation
+  // if(parallel_tempering){
+  //   ensemble.activate_parallel_tempering(temperatures);
+  // }
+  
+  int index;
+  int n_chains_out = which_chains.size();
+  int trace_length = (max_iter - burnin + (thin - 1)) / thin;
+  int list_length = n_chains_out * trace_length;
+  List tr_x(list_length), tr_X(list_length), tr_pi(list_length), tr_A(list_length), tr_mu(list_length), tr_sigma2(list_length), tr_alpha(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length);
+  
+  Timer timer;
+  nanotime_t t0, t1, t2, t3;
+  NumericVector comp_times(3);
+  for(int iter = 1; iter <= max_iter; iter++){
+    t0 = timer.now();
+    t1 = timer.now();
+
+    chain.update_x();
+    chain.convert_x_to_X();
+    t2 = timer.now();
+
+    if((iter > burnin) && ((iter-1) % thin == 0)){
+      index = (iter - burnin - 1)/thin;
+      chain.copy_values_to_trace(tr_x, tr_X, tr_pi, tr_A, tr_mu, tr_sigma2, tr_alpha, tr_loglik, tr_loglik_cond, tr_switching_prob, index, subsequence);
+      comp_times += 1.0/trace_length * NumericVector::create(t1-t0, t2-t1, t3-t2);
+      comp_times[0] += 1.0/trace_length * (t1 - t0);
+      comp_times[1] += 1.0/trace_length * (t2 - t1);
+      if((iter-1) % swaps_freq == 0){
+        comp_times[2] += 1.0/trace_length * swaps_freq * (t3 - t2);
+      }
+    }
+    if(iter % 1000 == 0) printf("iter %d\n", iter);
+  }
+  comp_times.attr("names") = CharacterVector::create("update pars", "update x", "swap/crossover");
+  
+  //ensemble.scale_marginals(max_iter, burnin);
+  //ListOf<NumericMatrix> tr_marginal_distr = ensemble.get_copy_of_marginals(which_chains);
+  
+  return List::create(Rcpp::Named("trace_x") = tr_x, 
+                      Rcpp::Named("trace_X") = tr_X,
+                      Rcpp::Named("trace_pi") = tr_pi,
+                      Rcpp::Named("trace_A") = tr_A,
+                      Rcpp::Named("trace_mu") = tr_mu,
+                      Rcpp::Named("trace_sigma2") = tr_sigma2,
+                      Rcpp::Named("trace_alpha") = tr_alpha,
+                      Rcpp::Named("log_posterior") = tr_loglik,
+                      Rcpp::Named("log_posterior_cond") = tr_loglik_cond,
+                      Rcpp::Named("switching_prob") = tr_switching_prob,
+                      //Rcpp::Named("marginal_distr") = tr_marginal_distr, 
+                      //Rcpp::Named("acceptance_ratio") = ensemble.get_acceptance_ratio(), 
                       Rcpp::Named("timer") = comp_times);
   
 }

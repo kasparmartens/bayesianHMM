@@ -84,3 +84,49 @@ generate_t_obs = function(segment_lengths, classes, mu, sigma, df){
   y = rt(length(x), df) * sigma[x] + mu[x]
   return(list(x = factor(x, levels = sort(unique(x))), y = y))
 }
+
+
+generate_FHMM_transition_mat = function(K, rho){
+  mapping = decimal_to_binary_mapping(K)
+  m = 2**K
+  A = matrix(0, m, m)
+  for(i in 1:m){
+    for(j in 1:m){
+      x = mapping[, i]
+      y = mapping[, j]
+      A[i, j] = rho**(sum(x==y)) * (1-rho)**(sum(x!=y))
+    }
+  }
+  A
+}
+
+match_col = function(mat, x) which(colSums(mat != x) == 0)
+
+meanfun = function(x, weights) sum(weights * x)
+
+#' @export
+generate_FHMM = function(n, K, rho, dim_obs = 1){
+  A = generate_FHMM_transition_mat(K, rho)
+  mapping = decimal_to_binary_mapping(K)
+  # generate X
+  X = matrix(0, K, n)
+  X[, 1] = rbinom(K, 1, 0.5)
+  # keep a copy in x
+  x = rep(0, n)
+  for(t in 2:n){
+    prev_state = match_col(mapping, X[, t-1])
+    new_state = sample(1:(2**K), 1, prob = A[prev_state, ])
+    X[, t] = mapping[, new_state]
+    x[t-1] = prev_state
+  }
+  x[n] = new_state
+  # generate Y
+  Y = matrix(0, dim_obs, n)
+  weights = seq(0.5, 10, length = K)
+  for(t in 1:n){
+    Y[, t] = meanfun(X[, t], weights) + rnorm(dim_obs, 0, 1)
+  }
+  # mu values
+  mu = apply(mapping, 2, meanfun, weights)
+  return(list(Y = Y, X = X, x = factor(x), mu = mu, A = A))
+}

@@ -88,3 +88,8 @@ void gamma_mat_to_dirichlet(NumericMatrix out, NumericMatrix& Y, int k, int s);
 void transition_matA_hyperprior(NumericMatrix A, const arma::ivec & x, NumericMatrix& Y, NumericVector& alpha, double a0, double b0, double sd_alpha, double sd_Y, int k, int n);
 
 double crossover_likelihood(const arma::ivec& x, const arma::ivec& y, int t, int n, NumericMatrix Ax, NumericMatrix Ay);
+
+// FHMM stuff
+IntegerMatrix decimal_to_binary_mapping(int K);
+
+IntegerMatrix calculate_hamming_dist(IntegerMatrix mapping);
