@@ -81,6 +81,7 @@ class Chain_Gaussian : public Chain {
     }
     
     void FB_step(NumericVector& y, bool estimate_marginals){
+
       emission_probs = emission_probs_mat_gaussian(y, mu, sigma2, k, n);
       // forward step
       if(is_tempered){

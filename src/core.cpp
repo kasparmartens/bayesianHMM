@@ -61,7 +61,7 @@ void update_pars_gaussian(NumericVector& y, arma::ivec& x, NumericVector& mu, Nu
   int index;
   // the number of elements in each component and their sums
   for(int t=0; t<n; t++){
-    index = x[t]-1;
+    index = x[t];
     n_k[index] += 1;
     cluster_sums[index] += y[t];
   }
@@ -72,7 +72,7 @@ void update_pars_gaussian(NumericVector& y, arma::ivec& x, NumericVector& mu, Nu
   // sum of squares for each component
   NumericVector ss(k);
   for(int t=0; t<n; t++){
-    index = x[t] - 1;
+    index = x[t];
     ss[index] += pow(y[t] - cluster_means[index], 2);
   }
   // draw mu from its posterior
@@ -151,7 +151,7 @@ void backward_sampling(arma::ivec& x, ListOf<NumericMatrix>& P, IntegerVector po
   prob = calculate_colsums(P[n-1], k, k);
   x[n-1] = as<int>(RcppArmadillo::sample(possible_values, 1, false, prob));
   for(int t=n-1; t>0; t--){
-    prob = P[t](_, x[t]-1);
+    prob = P[t](_, x[t]);
     x[t-1] = as<int>(RcppArmadillo::sample(possible_values, 1, false, prob));
   }
 }
@@ -271,7 +271,7 @@ void transition_mat_update1(NumericMatrix A, const arma::ivec & x, double alpha,
     A_pars(i, i) += 1.0;
   // add transition counts
   for(int t=0; t<(n-1); t++){
-    A_pars(x[t]-1, x[t+1]-1) += 1;
+    A_pars(x[t], x[t+1]) += 1;
   }
   rdirichlet_mat(A_pars, AA, k, k);
 }
@@ -283,7 +283,7 @@ void transition_mat_update1(NumericMatrix A, NumericMatrix A_pars, const arma::i
     A_pars(i, i) += 1.0;
   // add transition counts
   for(int t=0; t<(n-1); t++){
-    A_pars(x[t]-1, x[t+1]-1) += 1;
+    A_pars(x[t], x[t+1]) += 1;
   }
   rdirichlet_mat(A_pars, A, Y, alpha, k, k);
 }
@@ -292,7 +292,7 @@ void transition_mat_update1(NumericMatrix A, NumericMatrix A_pars, const arma::i
 //   NumericMatrix A_pars(k, k), AA(A);
 //   initialise_const_mat(A_pars, alpha, k, k);
 //   for(int t=0; t<(n-1); t++){
-//     A_pars(x[t]-1, x[t+1]-1) += 1;
+//     A_pars(x[t], x[t+1]) += 1;
 //   }
 //   rdirichlet_mat(A_pars, AA, Y, alpha, k, k);
 // }
@@ -301,7 +301,7 @@ void transition_mat_update2(NumericMatrix B, const arma::ivec & x, IntegerVector
   NumericMatrix B_pars(k, s);
   initialise_const_mat(B_pars, alpha, k, s);
   for(int t=0; t<n; t++){
-    B_pars(x[t]-1, y[t]-1) += 1;
+    B_pars(x[t], y[t]) += 1;
   }
   rdirichlet_mat(B_pars, B, k, s);
 }
@@ -310,7 +310,7 @@ void transition_mat_update3(NumericMatrix B, const arma::ivec & x, IntegerVector
   NumericMatrix B_pars(k, s);
   initialise_const_mat(B_pars, alpha, k, s);
   for(int t=0; t<n; t++){
-    B_pars(x[t]-1, y[t]-1) += inv_temperature;
+    B_pars(x[t], y[t]) += inv_temperature;
   }
   rdirichlet_mat(B_pars, B, k, s);
 }
@@ -318,7 +318,7 @@ void transition_mat_update3(NumericMatrix B, const arma::ivec & x, IntegerVector
 double loglikelihood(arma::ivec& x, NumericMatrix& emission_probs, int n){
   double loglik = 0.0;
   for(int t=0; t<n; t++){
-    loglik += log(emission_probs(x[t]-1, t));
+    loglik += log(emission_probs(x[t], t));
   }
   return loglik;
 }
@@ -326,7 +326,7 @@ double loglikelihood(arma::ivec& x, NumericMatrix& emission_probs, int n){
 // double loglikelihood(IntegerVector& y, arma::ivec& x, NumericMatrix& B, int n){
 //   double loglik = 0.0;
 //   for(int t=0; t<n; t++){
-//     loglik += log(B(x[t]-1, y[t]-1));
+//     loglik += log(B(x[t], y[t]));
 //   }
 //   return loglik;
 // }
@@ -334,7 +334,7 @@ double loglikelihood(arma::ivec& x, NumericMatrix& emission_probs, int n){
 double loglikelihood_x(arma::ivec& x, NumericVector&pi, NumericMatrix& A, int n){
   double loglik = pi[x[0]-1];
   for(int t=1; t<n; t++){
-    loglik += log(A(x[t-1]-1, x[t]-1));
+    loglik += log(A(x[t-1], x[t]));
   }
   return loglik;
 }
@@ -421,7 +421,7 @@ List forward_backward_fast(NumericVector pi, NumericMatrix A, NumericMatrix B, I
   forward_step(pi, A, emission_probs, P, loglik, k, n);
   // now backward sampling
   arma::ivec x(n);
-  IntegerVector possible_values = seq_len(k);
+  IntegerVector possible_values = seq_len(k)-1;
   backward_sampling(x, P, possible_values, k, n);
   // and backward recursion to obtain marginal distributions
   if(marginal_distr) backward_step(P, Q, k, n);
@@ -463,7 +463,7 @@ List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0,
   trace_length = (max_iter - burnin + (thin - 1)) / thin;
   List trace_x(trace_length), trace_pi(trace_length), trace_A(trace_length), trace_B(trace_length), trace_switching_prob(trace_length), log_posterior(trace_length);
   double loglik;
-  IntegerVector possible_values = seq_len(k);
+  IntegerVector possible_values = seq_len(k)-1;
   NumericVector switching_prob(n-1);
   NumericMatrix marginal_distr_res(k, n);
   NumericMatrix emission_probs(k, n);
@@ -537,8 +537,8 @@ double crossover_likelihood(const arma::ivec& x, const arma::ivec& y, int t, int
   if((t == 0) || (t == n)){
     return 1.0;
   } else{
-    double num = Ax(y[t-1]-1, x[t]-1) * Ay(x[t-1]-1, y[t]-1);
-    double denom = Ax(x[t-1]-1, x[t]-1) * Ay(y[t-1]-1, y[t]-1) + 1.0e-15;
+    double num = Ax(y[t-1], x[t]) * Ay(x[t-1], y[t]);
+    double denom = Ax(x[t-1], x[t]) * Ay(y[t-1], y[t]) + 1.0e-15;
     return num / denom;
   }
 }
@@ -596,6 +596,8 @@ void scale_marginal_distr(NumericMatrix marginal_distr_res, int k, int n, int ma
   arma::mat out(marginal_distr_res.begin(), k, n, false);
   out /= (float) (max_iter - burnin);
 }
+
+
 
 //' @export
 // [[Rcpp::export]]
@@ -765,4 +767,3 @@ List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s
                       Rcpp::Named("timer") = comp_times);
   
 }
-

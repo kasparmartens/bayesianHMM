@@ -66,6 +66,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// decimal_to_binary_mapping
+IntegerMatrix decimal_to_binary_mapping(int K);
+RcppExport SEXP ensembleHMM_decimal_to_binary_mapping(SEXP KSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type K(KSEXP);
+    rcpp_result_gen = Rcpp::wrap(decimal_to_binary_mapping(K));
+    return rcpp_result_gen;
+END_RCPP
+}
+// calculate_hamming_dist
+IntegerMatrix calculate_hamming_dist(IntegerMatrix mapping);
+RcppExport SEXP ensembleHMM_calculate_hamming_dist(SEXP mappingSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerMatrix >::type mapping(mappingSEXP);
+    rcpp_result_gen = Rcpp::wrap(calculate_hamming_dist(mapping));
+    return rcpp_result_gen;
+END_RCPP
+}
 // ensemble_gaussian
 List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool estimate_marginals, bool fixed_pars, bool parallel_tempering, bool crossovers, NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, NumericVector mu, NumericVector sigma2, IntegerVector which_chains, IntegerVector subsequence, IntegerVector x);
 RcppExport SEXP ensembleHMM_ensemble_gaussian(SEXP n_chainsSEXP, SEXP ySEXP, SEXP alphaSEXP, SEXP kSEXP, SEXP sSEXP, SEXP nSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP estimate_marginalsSEXP, SEXP fixed_parsSEXP, SEXP parallel_temperingSEXP, SEXP crossoversSEXP, SEXP temperaturesSEXP, SEXP swap_typeSEXP, SEXP swaps_burninSEXP, SEXP swaps_freqSEXP, SEXP muSEXP, SEXP sigma2SEXP, SEXP which_chainsSEXP, SEXP subsequenceSEXP, SEXP xSEXP) {
@@ -125,6 +147,38 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< IntegerVector >::type which_chains(which_chainsSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type subsequence(subsequenceSEXP);
     rcpp_result_gen = Rcpp::wrap(ensemble_discrete(n_chains, y, alpha, k, s, n, max_iter, burnin, thin, estimate_marginals, fixed_pars, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, B, which_chains, subsequence));
+    return rcpp_result_gen;
+END_RCPP
+}
+// FHMM
+List FHMM(int n_chains, NumericMatrix Y, NumericVector mu, double sigma, NumericMatrix A, double alpha, int K, int k, int n, int max_iter, int burnin, int thin, bool estimate_marginals, bool parallel_tempering, bool crossovers, NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, IntegerVector which_chains, IntegerVector subsequence, IntegerVector x);
+RcppExport SEXP ensembleHMM_FHMM(SEXP n_chainsSEXP, SEXP YSEXP, SEXP muSEXP, SEXP sigmaSEXP, SEXP ASEXP, SEXP alphaSEXP, SEXP KSEXP, SEXP kSEXP, SEXP nSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP estimate_marginalsSEXP, SEXP parallel_temperingSEXP, SEXP crossoversSEXP, SEXP temperaturesSEXP, SEXP swap_typeSEXP, SEXP swaps_burninSEXP, SEXP swaps_freqSEXP, SEXP which_chainsSEXP, SEXP subsequenceSEXP, SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type n_chains(n_chainsSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< double >::type sigma(sigmaSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type A(ASEXP);
+    Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
+    Rcpp::traits::input_parameter< int >::type K(KSEXP);
+    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
+    Rcpp::traits::input_parameter< int >::type burnin(burninSEXP);
+    Rcpp::traits::input_parameter< int >::type thin(thinSEXP);
+    Rcpp::traits::input_parameter< bool >::type estimate_marginals(estimate_marginalsSEXP);
+    Rcpp::traits::input_parameter< bool >::type parallel_tempering(parallel_temperingSEXP);
+    Rcpp::traits::input_parameter< bool >::type crossovers(crossoversSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type temperatures(temperaturesSEXP);
+    Rcpp::traits::input_parameter< int >::type swap_type(swap_typeSEXP);
+    Rcpp::traits::input_parameter< int >::type swaps_burnin(swaps_burninSEXP);
+    Rcpp::traits::input_parameter< int >::type swaps_freq(swaps_freqSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type which_chains(which_chainsSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type subsequence(subsequenceSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(FHMM(n_chains, Y, mu, sigma, A, alpha, K, k, n, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x));
     return rcpp_result_gen;
 END_RCPP
 }

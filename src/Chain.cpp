@@ -19,7 +19,7 @@ Chain::Chain(int k_, int s_, int n_, double alpha_, bool is_fixed_B_){
   emission_probs = NumericMatrix(k, n);
   loglik_marginal = 0.0;
   loglik_cond = 0.0;
-  possible_values = seq_len(k);
+  possible_values = seq_len(k)-1;
   marginal_distr = NumericMatrix(k, n);
   
   List PP(n), QQ(n);

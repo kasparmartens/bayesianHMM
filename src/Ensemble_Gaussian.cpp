@@ -94,8 +94,8 @@ void Ensemble_Gaussian::do_crossover(){
     tmp0 = log(crossover_likelihood(u, v, t+1, n, chains[i].get_A(), chains[j].get_A()));
     log_cumprod_x += tmp0;
     // switching u[t] and v[t]
-    tmp1 = beta_i * (log(emissions_i(v[t]-1, t)) - log(emissions_i(u[t]-1, t))); 
-    tmp2 = beta_j * (log(emissions_j(u[t]-1, t)) - log(emissions_j(v[t]-1, t))); 
+    tmp1 = beta_i * (log(emissions_i(v[t], t)) - log(emissions_i(u[t], t))); 
+    tmp2 = beta_j * (log(emissions_j(u[t], t)) - log(emissions_j(v[t], t))); 
     log_cumprod_y += tmp1 + tmp2;
     log_probs[t] = log_cumprod_x + log_cumprod_y;
     //printf("probs[%d] = %f", t, probs[t]);
@@ -105,8 +105,8 @@ void Ensemble_Gaussian::do_crossover(){
     tmp0 = log(crossover_likelihood(v, u, t+1, n, chains[i].get_A(), chains[j].get_A()));
     log_cumprod_x += tmp0;
     // switching u[t] and v[t]
-    tmp1 = beta_i * (log(emissions_i(u[t]-1, t)) - log(emissions_i(v[t]-1, t))); 
-    tmp2 = beta_j * (log(emissions_j(v[t]-1, t)) - log(emissions_j(u[t]-1, t))); 
+    tmp1 = beta_i * (log(emissions_i(u[t], t)) - log(emissions_i(v[t], t))); 
+    tmp2 = beta_j * (log(emissions_j(v[t], t)) - log(emissions_j(u[t], t))); 
     log_cumprod_y += tmp1 + tmp2;
     log_probs[t+n] = log_cumprod_x + log_cumprod_y;
     //printf("probs[%d] = %f", t, probs[t]);
