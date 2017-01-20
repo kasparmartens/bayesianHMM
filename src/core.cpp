@@ -124,7 +124,7 @@ NumericMatrix emission_probs_mat_gaussian(NumericVector y, NumericVector mu, Num
 NumericMatrix emission_probs_mat_discrete(IntegerVector y, NumericMatrix B, int k, int n){
   NumericMatrix out(k, n);
   for(int t=0; t<n; t++){
-    out(_, t) = B(_, y[t]-1);
+    out(_, t) = B(_, y[t]);
   }
   return out;
 }

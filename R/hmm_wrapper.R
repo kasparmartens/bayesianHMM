@@ -28,10 +28,10 @@ gibbs = function(type, n_chains, y, k, alpha, max_iter, burnin, which_chains = 1
   s = length(unique(y))
   if(type == "discrete"){
     if(!all(y %in% 1:s)) stop("y must be an integer from 1 to S")
-    res = ensemble_discrete(n_chains, as.integer(y), alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, estimate_marginals = estimate_marginals, fixed_pars = fixed_pars, parallel_tempering = FALSE, crossovers = FALSE, temperatures = rep(1, n_chains), swap_type = 0, swaps_burnin = max_iter, swaps_freq = 1, B = B, which_chains = which_chains, subsequence = subsequence-1L)
+    res = ensemble_discrete(n_chains, as.integer(y)-1, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, estimate_marginals = estimate_marginals, fixed_pars = fixed_pars, parallel_tempering = FALSE, crossovers = FALSE, temperatures = rep(1, n_chains), swap_type = 0, swaps_burnin = max_iter, swaps_freq = 1, B = B, which_chains = which_chains, subsequence = subsequence-1L)
   }
   if(type == "continuous"){
-    res = ensemble_gaussian(n_chains, y, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, estimate_marginals = estimate_marginals, fixed_pars = fixed_pars, parallel_tempering = FALSE, crossovers = FALSE, temperatures = rep(1, n_chains), swap_type = 0, swaps_burnin = max_iter, swaps_freq = 1, mu = mu, sigma2 = sigma2, which_chains = which_chains, subsequence = subsequence-1L, x = x)
+    res = ensemble_gaussian(n_chains, y, alpha, k = k, n = n, max_iter = max_iter, burnin = burnin, thin = thin, estimate_marginals = estimate_marginals, fixed_pars = fixed_pars, parallel_tempering = FALSE, crossovers = FALSE, temperatures = rep(1, n_chains), swap_type = 0, swaps_burnin = max_iter, swaps_freq = 1, mu = mu, sigma2 = sigma2, which_chains = which_chains, subsequence = subsequence-1L, x = x)
   }
   res$type = type
   class(res) = "ensembleHMM"
@@ -46,10 +46,10 @@ crossovers = function(type, n_chains, y, k, alpha, max_iter, burnin, swaps_burni
   s = length(unique(y))
   if(type == "discrete"){
     if(!all(y %in% 1:s)) stop("y must be an integer from 1 to S")
-    res = ensemble_discrete(n_chains, y, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, estimate_marginals = estimate_marginals, fixed_pars = fixed_pars, parallel_tempering = TRUE, crossovers = TRUE, temperatures = temperatures, swap_type = -1, swaps_burnin = swaps_burnin, swaps_freq = swaps_freq, B = B, which_chains = which_chains, subsequence = subsequence-1L)
+    res = ensemble_discrete(n_chains, as.integer(y)-1, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, estimate_marginals = estimate_marginals, fixed_pars = fixed_pars, parallel_tempering = TRUE, crossovers = TRUE, temperatures = temperatures, swap_type = -1, swaps_burnin = swaps_burnin, swaps_freq = swaps_freq, B = B, which_chains = which_chains, subsequence = subsequence-1L)
   }
   if(type == "continuous"){
-    res = ensemble_gaussian(n_chains, y, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, estimate_marginals = estimate_marginals, fixed_pars = fixed_pars, parallel_tempering = TRUE, crossovers = TRUE, temperatures = temperatures, swap_type = -1, swaps_burnin = swaps_burnin, swaps_freq = swaps_freq, mu = mu, sigma2 = sigma2, which_chains = which_chains, subsequence = subsequence-1L, x = x)
+    res = ensemble_gaussian(n_chains, y, alpha, k = k, n = n, max_iter = max_iter, burnin = burnin, thin = thin, estimate_marginals = estimate_marginals, fixed_pars = fixed_pars, parallel_tempering = TRUE, crossovers = TRUE, temperatures = temperatures, swap_type = -1, swaps_burnin = swaps_burnin, swaps_freq = swaps_freq, mu = mu, sigma2 = sigma2, which_chains = which_chains, subsequence = subsequence-1L, x = x)
   }
   res$type = type
   class(res) = "ensembleHMM"
@@ -65,12 +65,12 @@ parallel_tempering = function(type, n_chains, temperatures, y, k, alpha, max_ite
   if(length(temperatures) < n_chains) stop("Specify a temperature for each chain!")
   if(type == "discrete"){
     if(!all(y %in% 1:s)) stop("y must be an integer from 1 to S")
-    res = ensemble_discrete(n_chains, y, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, 
+    res = ensemble_discrete(n_chains, as.integer(y)-1, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, 
                              estimate_marginals = estimate_marginals, fixed_pars = fixed_pars, parallel_tempering = TRUE, crossovers = FALSE, 
                              temperatures = temperatures, swap_type = swap_type, swaps_burnin = swaps_burnin, swaps_freq = swaps_freq, B = B, which_chains = which_chains, subsequence = subsequence-1L)
   }
   if(type == "continuous"){
-    res = ensemble_gaussian(n_chains, y, alpha, k = k, s = s, n = n, max_iter = max_iter, burnin = burnin, thin = thin, 
+    res = ensemble_gaussian(n_chains, y, alpha, k = k, n = n, max_iter = max_iter, burnin = burnin, thin = thin, 
                             estimate_marginals = estimate_marginals, fixed_pars = fixed_pars, parallel_tempering = TRUE, crossovers = FALSE, 
                             temperatures = temperatures, swap_type = swap_type, swaps_burnin = swaps_burnin, swaps_freq = swaps_freq, mu = mu, sigma2 = sigma2, which_chains = which_chains, subsequence = subsequence-1L, x = x)
   }

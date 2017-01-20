@@ -39,7 +39,7 @@ public:
   
   void convert_x_to_X(){
     for(int t=0; t<n; t++){
-      X(_, t) = mapping(_, x[t]-1);
+      X(_, t) = mapping(_, x[t]);
     }
   }
   
