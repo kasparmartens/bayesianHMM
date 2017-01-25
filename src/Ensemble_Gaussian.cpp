@@ -58,66 +58,81 @@ void Ensemble_Gaussian::scale_marginals(int max_iter, int burnin){
   }
 }
 
-// void Ensemble_Gaussian::do_crossover(){
-//   IntegerVector selected_chains = sample_helper(n_chains, 2);
-//   int i = selected_chains[0]-1;
-//   int j = selected_chains[1]-1;
-//   double_crossover(chains[i].get_x(), chains[j].get_x(), n);
-// }
-
-void Ensemble_Gaussian::do_crossover(){
-  IntegerVector selected_chains = sample_helper(n_chains-1, 1);
-  int i = selected_chains[0]-1;
-  int j = i+1;
-  // create shortcuts u and v such that
-  // (u, v) <- uniform_crossover(...)
-  arma::ivec u(chains[i].get_x_memptr(), n, false);
-  arma::ivec v(chains[j].get_x_memptr(), n, false);
+void Ensemble_Gaussian::uniform_crossover(int i, int j){
+  int t0 = sample_int(n);
+  // flip a coin
   if(R::runif(0, 1) < 0.5){
-    uniform_crossover(u, v, n);
+    crossover(chains[i].get_x(), chains[j].get_x(), t0);
   } else{
-    uniform_crossover(v, u, n);
+    crossover(chains[j].get_x(), chains[i].get_x(), t0);
   }
-  // consider all crossovers of u and v
-  NumericVector log_probs(2*n);
-  // temporary variables
-  NumericMatrix emissions_i = chains[i].get_emission_probs() + 1.0e-15;
-  NumericMatrix emissions_j = chains[j].get_emission_probs() + 1.0e-15;
+}
+
+void Ensemble_Gaussian::nonuniform_crossover(NumericVector probs, int i, int j){
+  int t0 = sample_int(2*n, probs);
+  if(t0 < n){
+    crossover(chains[i].get_x(), chains[j].get_x(), t0);
+  } else{
+    crossover(chains[j].get_x(), chains[i].get_x(), t0-n);
+  }
+}
+
+double Ensemble_Gaussian::crossover_likelihood(int i, int j, int t){
+  NumericMatrix Ai = chains[i].get_A();
+  NumericMatrix Aj = chains[j].get_A();
   double beta_i = chains[i].get_inv_temperature();
   double beta_j = chains[j].get_inv_temperature();
-  double log_cumprod_x = 0.0;
-  double log_cumprod_y = 0.0; 
-  double tmp0, tmp1, tmp2;
+  NumericMatrix emissions_i = chains[i].get_emission_probs();
+  NumericMatrix emissions_j = chains[j].get_emission_probs();
+  
+  double denom_x = 1.0;
+  if(t<n-1){
+    denom_x = Ai(chains[i].get_x()[t], chains[i].get_x()[t+1]) * 
+      Aj(chains[j].get_x()[t], chains[j].get_x()[t+1]);
+  } 
+  
+  double log_denom_y = beta_i * log(emissions_i(chains[i].get_x()[t], t)+1.0e-16) + 
+    beta_j * log(emissions_j(chains[j].get_x()[t], t)+1.0e-16);
+  
+  crossover_one_element(chains[i].get_x(), chains[j].get_x(), t);
+  
+  double num_x = 1.0;
+  if(t<n-1){
+    num_x = Ai(chains[i].get_x()[t], chains[i].get_x()[t+1]) * 
+      Aj(chains[j].get_x()[t], chains[j].get_x()[t+1]);
+  } 
+  
+  double log_num_y = beta_i * log(emissions_i(chains[i].get_x()[t], t)+1.0e-16) + 
+    beta_j * log(emissions_j(chains[j].get_x()[t], t)+1.0e-16);
+  
+  double log_x = log(num_x/denom_x + 1.0e-16);
+  return log_x + log_num_y - log_denom_y;
+}
+
+void Ensemble_Gaussian::do_crossover(){
+  int i = sample_int(n_chains-1);
+  int j = i+1;
+  // uniform crossover
+  uniform_crossover(i, j);
+  // consider all crossovers of u and v
+  NumericVector log_probs(2*n);
+  double log_cumprod = 0.0;
   for(int t=0; t<n; t++){
-    // compute the likelihood term
-    tmp0 = log(crossover_likelihood(u, v, t+1, n, chains[i].get_A(), chains[j].get_A()));
-    log_cumprod_x += tmp0;
-    // switching u[t] and v[t]
-    tmp1 = beta_i * (log(emissions_i(v[t], t)) - log(emissions_i(u[t], t))); 
-    tmp2 = beta_j * (log(emissions_j(u[t], t)) - log(emissions_j(v[t], t))); 
-    log_cumprod_y += tmp1 + tmp2;
-    log_probs[t] = log_cumprod_x + log_cumprod_y;
-    //printf("probs[%d] = %f", t, probs[t]);
+    log_cumprod += crossover_likelihood(i, j, t);
+    log_probs[t] = log_cumprod;
   }
   for(int t=0; t<n; t++){
-    // compute the likelihood term
-    tmp0 = log(crossover_likelihood(v, u, t+1, n, chains[i].get_A(), chains[j].get_A()));
-    log_cumprod_x += tmp0;
-    // switching u[t] and v[t]
-    tmp1 = beta_i * (log(emissions_i(u[t], t)) - log(emissions_i(v[t], t))); 
-    tmp2 = beta_j * (log(emissions_j(v[t], t)) - log(emissions_j(u[t], t))); 
-    log_cumprod_y += tmp1 + tmp2;
-    log_probs[t+n] = log_cumprod_x + log_cumprod_y;
-    //printf("probs[%d] = %f", t, probs[t]);
+    log_cumprod += crossover_likelihood(j, i, t);
+    log_probs[t+n] = log_cumprod;
   }
   NumericVector probs = exp(log_probs - max(log_probs));
   // pick one of the crossovers and accept this move
-  nonuniform_crossover2(u, v, probs, n);
+  nonuniform_crossover(probs, i, j);
 }
 
 void Ensemble_Gaussian::swap_everything(){
   // pick chains j and j+1, and propose to swap parameters
-  int j = as<int>(sample_helper(n_chains-1, 1)) - 1;
+  int j = sample_int(n_chains-1);
   double accept_prob = MH_acceptance_prob_swap_everything(chains[j].get_x(), chains[j].get_emission_probs_tempered(), 
                                                           chains[j+1].get_x(), chains[j+1].get_emission_probs_tempered(), 
                                                           chains[j].get_inv_temperature(), chains[j+1].get_inv_temperature(), n);
@@ -135,7 +150,7 @@ void Ensemble_Gaussian::swap_everything(){
 
 void Ensemble_Gaussian::swap_pars(){
   // pick chains j and j+1, and propose to swap parameters
-  int j = as<int>(sample_helper(n_chains-1, 1)) - 1;
+  int j = sample_int(n_chains-1);
   double accept_prob = MH_acceptance_prob_swap_pars(chains[j].get_pi(), chains[j].get_A(), chains[j].get_emission_probs(), 
                                                     chains[j+1].get_pi(), chains[j+1].get_A(), chains[j+1].get_emission_probs(), 
                                                     chains[j].get_inv_temperature(), chains[j+1].get_inv_temperature(), k, n);
@@ -153,7 +168,7 @@ void Ensemble_Gaussian::swap_pars(){
 
 void Ensemble_Gaussian::swap_x(){
   // pick chains j and j+1, and propose to swap parameters
-  int j = as<int>(sample_helper(n_chains-1, 1)) - 1;
+  int j = sample_int(n_chains-1);
   double accept_prob = MH_acceptance_prob_swap_x(chains[j].get_x(), chains[j].get_pi(), chains[j].get_A(), chains[j].get_emission_probs_tempered(), 
                                                  chains[j+1].get_x(), chains[j+1].get_pi(), chains[j+1].get_A(), chains[j+1].get_emission_probs_tempered(), 
                                                  n);

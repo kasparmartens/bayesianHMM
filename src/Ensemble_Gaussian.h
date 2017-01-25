@@ -2,6 +2,7 @@
 #define ENSEMBLE_GAUSSIAN_H
 
 #include "Chain_Gaussian.h"
+#include "global.h"
 
 using namespace Rcpp;
 
@@ -34,6 +35,12 @@ class Ensemble_Gaussian{
     void scale_marginals(int max_iter, int burnin);
     
     void do_crossover();
+    
+    double crossover_likelihood(int i, int j, int t);
+    
+    void nonuniform_crossover(NumericVector probs, int i, int j);
+    
+    void uniform_crossover(int i, int j);
     
     void swap_everything();
     
