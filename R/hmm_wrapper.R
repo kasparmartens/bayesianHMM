@@ -1,10 +1,36 @@
 #' @useDynLib ensembleHMM
 #' @importFrom Rcpp sourceCpp
 
-postprocess_chains = function(res, n_chains_out, burnin, max_iter, thin){
+postprocess_chains <- function(x, ...) UseMethod("postprocess_chains")
+
+postprocess_chains.ensembleHMM = function(res, n_chains_out, burnin, max_iter, thin){
   m = length(res$trace_x)
   seq_ind = lapply(1:n_chains_out, function(i)seq(i, m, n_chains_out))
   res$trace_x = lapply(seq_ind, function(ind) do.call("rbind", res$trace_x[ind]))
+  res$trace_pi = lapply(seq_ind, function(ind) res$trace_pi[ind])
+  res$trace_A = lapply(seq_ind, function(ind) res$trace_A[ind])
+  if(res$type == "discrete"){
+    res$trace_B = lapply(seq_ind, function(ind) res$trace_B[ind])
+  }
+  if(res$type == "continuous"){
+    res$trace_mu = lapply(seq_ind, function(ind) do.call("rbind", res$trace_mu[ind]))
+    res$trace_sigma2 = lapply(seq_ind, function(ind) do.call("rbind", res$trace_sigma2[ind]))
+  }
+  res$trace_alpha = lapply(seq_ind, function(ind) unlist(res$trace_alpha[ind]))
+  res$switching_prob = lapply(seq_ind, function(ind) do.call("rbind", res$switching_prob[ind]))
+  res$log_posterior = lapply(seq_ind, function(ind) unlist(res$log_posterior[ind]))
+  res$log_posterior_cond = lapply(seq_ind, function(ind) unlist(res$log_posterior_cond[ind]))
+  res$iter = as.integer(seq(burnin+1, max_iter, thin))
+  return(res)
+}
+
+postprocess_chains.FHMM = function(res, n_chains_out, burnin, max_iter, thin){
+  m = length(res$trace_x)
+  seq_ind = lapply(1:n_chains_out, function(i)seq(i, m, n_chains_out))
+  res$trace_x = lapply(seq_ind, function(ind) do.call("rbind", res$trace_x[ind]))
+  res$trace_X = lapply(seq_ind, function(ind){
+    do.call("rbind", lapply(res$trace_X[ind], colSums))
+  })
   res$trace_pi = lapply(seq_ind, function(ind) res$trace_pi[ind])
   res$trace_A = lapply(seq_ind, function(ind) res$trace_A[ind])
   if(res$type == "discrete"){
@@ -41,7 +67,7 @@ gibbs = function(type, n_chains, y, k, alpha, max_iter, burnin, which_chains = 1
 }
 
 #' @export
-crossovers = function(type, n_chains, y, k, alpha, max_iter, burnin, swaps_burnin, which_chains = 1:n_chains, n_crossovers = 5, temperatures = rep(1, n_chains), swaps_freq = 1, thin = 1, fixed_pars = FALSE, B = matrix(0, k, s), mu = numeric(0), sigma2 = numeric(0), subsequence = 1:length(y), estimate_marginals = TRUE, x = integer(0)){
+crossovers = function(type, n_chains, y, k, alpha, max_iter, burnin, swaps_burnin, which_chains = 1:n_chains, temperatures = rep(1, n_chains), swaps_freq = 1, thin = 1, fixed_pars = FALSE, B = matrix(0, k, s), mu = numeric(0), sigma2 = numeric(0), subsequence = 1:length(y), estimate_marginals = TRUE, x = integer(0)){
   n = length(y)
   s = length(unique(y))
   if(type == "discrete"){
@@ -77,6 +103,20 @@ parallel_tempering = function(type, n_chains, temperatures, y, k, alpha, max_ite
   res$type = type
   class(res) = "ensembleHMM"
   # postprocess the traces
+  n_chains_out = length(which_chains)
+  return(postprocess_chains(res, n_chains_out, burnin, max_iter, thin))
+}
+
+#' @export
+FHMM = function(n_chains, n, Y, K, mu, sigma, A, radius, max_iter, burnin, x_init, alpha = 0.1, swaps_burnin, which_chains = 1:n_chains, temperatures = rep(1, n_chains), swaps_freq = 1, thin = 1, crossovers = FALSE){
+  res = ensemble_HMM(n_chains = n_chains, Y = Y, mu = mu, sigma = sigma, A = A, alpha = alpha, 
+                     K = K, k = 2**K, n = n, radius = radius, 
+                     max_iter = max_iter, burnin = burnin, thin = thin, 
+                     estimate_marginals = FALSE, parallel_tempering = TRUE, crossovers = crossovers, 
+                     temperatures = temperatures, swap_type = 0, swaps_burnin = 100, swaps_freq = 10, 
+                     which_chains = which_chains, subsequence = as.numeric(0), x = x_init-1)
+  res$type = "factorial"
+  class(res) = "FHMM"
   n_chains_out = length(which_chains)
   return(postprocess_chains(res, n_chains_out, burnin, max_iter, thin))
 }
