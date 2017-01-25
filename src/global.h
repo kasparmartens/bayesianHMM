@@ -47,9 +47,10 @@ void initialise_transition_matrices(NumericVector pi, NumericMatrix A, NumericMa
 
 //void crossover(arma::ivec& x, arma::ivec& y, int n);
 //void double_crossover(arma::ivec& x, arma::ivec& y, int n);
-void nonuniform_crossover(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n);
-void nonuniform_crossover2(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n);
-  
+//void nonuniform_crossover(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n);
+//void nonuniform_crossover2(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n);
+void crossover(arma::ivec& x, arma::ivec& y, int t);
+
 void uniform_crossover(arma::ivec& x, arma::ivec& y, int n);
 
 IntegerVector sample_helper(int n_chains, int n);
@@ -92,4 +93,25 @@ double crossover_likelihood(const arma::ivec& x, const arma::ivec& y, int t, int
 // FHMM stuff
 IntegerMatrix decimal_to_binary_mapping(int K);
 
-IntegerMatrix calculate_hamming_dist(IntegerMatrix mapping);
+IntegerVector hamming_ball(int index, int radius, IntegerMatrix& mapping);
+
+IntegerMatrix construct_all_hamming_balls(int radius, IntegerMatrix& mapping);
+
+void FHMM_forward_step(NumericVector pi, NumericMatrix A, NumericMatrix emission_probs, ListOf<NumericMatrix>& P, double& loglik, int k, int n, 
+                  arma::ivec& x, IntegerMatrix all_hamming_balls);
+
+void FHMM_backward_sampling(arma::ivec& x, ListOf<NumericMatrix>& P, int k, int n, IntegerMatrix all_hamming_balls);
+
+void sample_within_hamming_ball(arma::ivec& x, int n, IntegerMatrix hamming_balls);
+
+int sample_int(int n);
+
+int sample_int(int n, NumericVector probs);
+
+void crossover_mat(IntegerMatrix X, IntegerMatrix Y, int t, IntegerVector which_rows);
+
+void crossover_one_column(IntegerMatrix X, IntegerMatrix Y, int t, IntegerVector which_rows, int m);
+
+void crossover_one_element(arma::ivec& x, arma::ivec& y, int t);
+
+int myPow(int x, int p);

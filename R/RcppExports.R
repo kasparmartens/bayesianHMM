@@ -7,13 +7,13 @@ forward_backward_fast <- function(pi, A, B, y, k, n, marginal_distr) {
 }
 
 #' @export
-gibbs_sampling_fast_with_starting_vals <- function(pi0, A0, B0, y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr, is_fixed_B) {
-    .Call('ensembleHMM_gibbs_sampling_fast_with_starting_vals', PACKAGE = 'ensembleHMM', pi0, A0, B0, y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr, is_fixed_B)
+crossover <- function(x, y, t) {
+    invisible(.Call('ensembleHMM_crossover', PACKAGE = 'ensembleHMM', x, y, t))
 }
 
 #' @export
-gibbs_sampling_fast <- function(y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr, is_fixed_B) {
-    .Call('ensembleHMM_gibbs_sampling_fast', PACKAGE = 'ensembleHMM', y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr, is_fixed_B)
+crossover_mat <- function(X, Y, t, which_rows) {
+    invisible(.Call('ensembleHMM_crossover_mat', PACKAGE = 'ensembleHMM', X, Y, t, which_rows))
 }
 
 #' @export
@@ -22,8 +22,13 @@ decimal_to_binary_mapping <- function(K) {
 }
 
 #' @export
-calculate_hamming_dist <- function(mapping) {
-    .Call('ensembleHMM_calculate_hamming_dist', PACKAGE = 'ensembleHMM', mapping)
+hamming_ball <- function(index, radius, mapping) {
+    .Call('ensembleHMM_hamming_ball', PACKAGE = 'ensembleHMM', index, radius, mapping)
+}
+
+#' @export
+construct_all_hamming_balls <- function(radius, mapping) {
+    .Call('ensembleHMM_construct_all_hamming_balls', PACKAGE = 'ensembleHMM', radius, mapping)
 }
 
 #' @export
@@ -37,7 +42,7 @@ ensemble_discrete <- function(n_chains, y, alpha, k, s, n, max_iter, burnin, thi
 }
 
 #' @export
-FHMM <- function(n_chains, Y, mu, sigma, A, alpha, K, k, n, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x) {
-    .Call('ensembleHMM_FHMM', PACKAGE = 'ensembleHMM', n_chains, Y, mu, sigma, A, alpha, K, k, n, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x)
+ensemble_HMM <- function(n_chains, Y, mu, sigma, A, alpha, K, k, n, radius, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x) {
+    .Call('ensembleHMM_ensemble_HMM', PACKAGE = 'ensembleHMM', n_chains, Y, mu, sigma, A, alpha, K, k, n, radius, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x)
 }
 

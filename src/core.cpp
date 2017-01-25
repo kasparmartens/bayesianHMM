@@ -2,7 +2,7 @@
 
 #include "Ensemble_Gaussian.h"
 #include "Ensemble_Discrete.h"
-#include "Chain_Factorial.h"
+#include "Ensemble_Factorial.h"
 #include <RcppArmadilloExtensions/sample.h>
 #include <Rcpp/Benchmark/Timer.h>
 using namespace Rcpp;
@@ -76,10 +76,10 @@ void update_pars_gaussian(NumericVector& y, arma::ivec& x, NumericVector& mu, Nu
     index = x[t];
     ss[index] += pow(y[t] - cluster_means[index], 2);
   }
-  // draw mu from its posterior
-  update_mu(mu, sigma2, n_k, cluster_sums, rho, inv_temp, k);
   // draw sigma from its posterior
   update_sigma(sigma2, n_k, ss, a0, b0, inv_temp, k);
+  // draw mu from its posterior mu|sigma2
+  update_mu(mu, sigma2, n_k, cluster_sums, rho, inv_temp, k);
 }
 
 void update_marginal_distr(ListOf<NumericMatrix> Q, NumericMatrix res, int k, int n){
@@ -111,6 +111,78 @@ void forward_step(NumericVector pi, NumericMatrix A, NumericMatrix emission_prob
   }
 }
 
+// FHMM functions
+
+void FHMM_compute_P(NumericMatrix PP, double& loglik, NumericVector pi, NumericMatrix A, NumericVector b, int k, 
+                    IntegerVector which_states1, IntegerVector which_states2){
+  // here k is length(which_states) or equivalently the ncol/nrow of PP
+  int i, j;
+  for(int s=0; s<k; s++){
+    j = which_states2[s];
+    for(int r=0; r<k; r++){
+      i = which_states1[r];
+      //printf("pi[%d] * A(%d, %d) * b[%d]\n", r, i, j, j);
+      //printf("pi %e * A %e * b %e \n", pi[r], A(i, j), b[j]);
+      PP(r, s) = pi[r] * A(i, j) * b[j] + 1.0e-16;
+    }
+  }
+  double sum = normalise_mat(PP, k, k);
+  loglik += log(sum);
+}
+
+void FHMM_compute_P0(NumericMatrix PP, double& loglik, NumericVector pi, NumericVector b, int k, 
+                    IntegerVector which_states){
+  // here k is length(which_states) or equivalently the ncol/nrow of PP
+  int j;
+  for(int s=0; s<k; s++){
+    j = which_states[s];
+    for(int r=0; r<k; r++){
+      PP(r, s) = pi[r] * b[j] + 1.0e-16;
+    }
+  }
+  double sum = normalise_mat(PP, k, k);
+  loglik += log(sum);
+}
+
+void FHMM_forward_step(NumericVector pi, NumericMatrix A, NumericMatrix emission_probs, ListOf<NumericMatrix>& P, double& loglik, int k, int n, 
+                       arma::ivec& x, IntegerMatrix all_hamming_balls){
+  // here k == nrow(all_hamming_balls)
+  NumericVector b, colsums(k);
+  b = emission_probs(_, 0);
+  FHMM_compute_P0(P[0], loglik, pi, b, k, all_hamming_balls(_, x[0]));
+  loglik = 0.0;
+  for(int t=1; t<n; t++){
+    colsums = calculate_colsums(P[t-1], k, k);
+    b = emission_probs(_, t);
+    FHMM_compute_P(P[t], loglik, colsums, A, b, k, all_hamming_balls(_, x[t-1]), all_hamming_balls(_, x[t]));
+  }
+}
+
+void FHMM_backward_sampling(arma::ivec& x, ListOf<NumericMatrix>& P, int k, int n, IntegerMatrix all_hamming_balls){
+  NumericVector prob(k);
+  NumericMatrix PP;
+  IntegerVector x_temp(n);
+  IntegerVector possible_values = seq_len(k)-1;
+  prob = calculate_colsums(P[n-1], k, k);
+  x_temp[n-1] = as<int>(RcppArmadillo::sample(possible_values, 1, false, prob));
+  for(int t=n-1; t>0; t--){
+    prob = P[t](_, x_temp[t]);
+    x_temp[t-1] = as<int>(RcppArmadillo::sample(possible_values, 1, false, prob));
+  }
+  for(int t=0; t<n; t++){
+    x[t] = all_hamming_balls(x_temp[t], x[t]);
+  }
+}
+
+void sample_within_hamming_ball(arma::ivec& x, int n, IntegerMatrix hamming_balls){
+  IntegerVector possible_values;
+  for(int t=0; t<n; t++){
+    // select u[t] uniformly within the hamming ball centered at x[t] (and overwrite it)
+    possible_values = hamming_balls(_, x[t]);
+    x[t] = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
+  }
+}
+
 NumericMatrix emission_probs_mat_gaussian(NumericVector y, NumericVector mu, NumericVector sigma2, int k, int n){
   NumericMatrix out(k, n);
   for(int t=0; t<n; t++){
@@ -118,6 +190,7 @@ NumericMatrix emission_probs_mat_gaussian(NumericVector y, NumericVector mu, Num
       out(i, t) = R::dnorm4(y[t], mu[i], sqrt(sigma2[i]), false);
     }
   }
+  out = out / max(out);
   return out;
 }
 
@@ -136,6 +209,7 @@ NumericMatrix temper_emission_probs(NumericMatrix mat, double inv_temperature, i
       out(i, t) = pow(mat(i, t), inv_temperature);
     }
   }
+  out = out / max(out);
   return out;
 }
 
@@ -175,9 +249,9 @@ void switching_probabilities(ListOf<NumericMatrix>& Q, NumericVector res, int k,
 
 void rdirichlet_vec(NumericVector a, NumericVector res, int k){
   NumericVector temp(k);
-  double sum = 0;
+  double sum = 0.0;
   for(int i=0; i<k; i++){
-    temp[i] = R::rgamma(a[i], 1);
+    temp[i] = R::rgamma(a[i], 1.0) + 1.0e-16;
     sum += temp[i];
   }
   for(int i=0; i<k; i++){
@@ -188,9 +262,9 @@ void rdirichlet_vec(NumericVector a, NumericVector res, int k){
 void rdirichlet_mat(NumericMatrix A, NumericMatrix res, int k, int s){
   NumericVector temp(s);
   for(int i=0; i<k; i++){
-    double sum = 0;
+    double sum = 0.0;
     for(int j=0; j<s; j++){
-      temp[j] = R::rgamma(A(i, j), 1);
+      temp[j] = R::rgamma(A(i, j), 1.0) + 1.0e-16;
       sum += temp[j];
     }
     for(int j=0; j<s; j++){
@@ -202,9 +276,9 @@ void rdirichlet_mat(NumericMatrix A, NumericMatrix res, int k, int s){
 void rdirichlet_mat(NumericMatrix A, NumericMatrix res, NumericMatrix Y, double alpha, int k, int s){
   NumericVector temp(s);
   for(int i=0; i<k; i++){
-    double sum = 0;
+    double sum = 0.0;
     for(int j=0; j<s; j++){
-      Y(i, j) = R::rgamma(A(i, j) + alpha, 1);
+      Y(i, j) = R::rgamma(A(i, j) + alpha, 1.0) + 1.0e-16;
       sum += Y(i, j);
     }
     for(int j=0; j<s; j++){
@@ -248,6 +322,7 @@ void update_alpha(double& alpha, NumericMatrix Y, NumericMatrix A_pars, double a
   // accept or reject
   if(R::runif(0, 1) < exp(logprob_proposed - logprob_current)){
     alpha = alpha_proposed;
+    printf("new alpha: %f\n", alpha);
   }
 }
 
@@ -264,18 +339,18 @@ void gamma_mat_to_dirichlet(NumericMatrix out, NumericMatrix& Y, int k, int s){
 }
 
 
-void transition_mat_update1(NumericMatrix A, const arma::ivec & x, double alpha, int k, int n){
-  NumericMatrix A_pars(k, k), AA(A);
-  initialise_const_mat(A_pars, alpha, k, k);
-  // add 1 to diagonal
-  for(int i=0; i<k; i++)
-    A_pars(i, i) += 1.0;
-  // add transition counts
-  for(int t=0; t<(n-1); t++){
-    A_pars(x[t], x[t+1]) += 1;
-  }
-  rdirichlet_mat(A_pars, AA, k, k);
-}
+// void transition_mat_update1(NumericMatrix A, const arma::ivec & x, double alpha, int k, int n){
+//   NumericMatrix A_pars(k, k), AA(A);
+//   initialise_const_mat(A_pars, alpha, k, k);
+//   // add 1 to diagonal
+//   for(int i=0; i<k; i++)
+//     A_pars(i, i) += 1.0;
+//   // add transition counts
+//   for(int t=0; t<(n-1); t++){
+//     A_pars(x[t], x[t+1]) += 1;
+//   }
+//   rdirichlet_mat(A_pars, AA, k, k);
+// }
 
 void transition_mat_update1(NumericMatrix A, NumericMatrix A_pars, const arma::ivec & x, NumericMatrix Y, double alpha, int k, int n){
   initialise_const_mat(A_pars, 0.0, k, k);
@@ -284,25 +359,16 @@ void transition_mat_update1(NumericMatrix A, NumericMatrix A_pars, const arma::i
     A_pars(i, i) += 1.0;
   // add transition counts
   for(int t=0; t<(n-1); t++){
-    A_pars(x[t], x[t+1]) += 1;
+    A_pars(x[t], x[t+1]) += 1.0;
   }
   rdirichlet_mat(A_pars, A, Y, alpha, k, k);
 }
-
-// void transition_mat_update1(NumericMatrix A, const arma::ivec & x, NumericMatrix Y, double alpha, int k, int n){
-//   NumericMatrix A_pars(k, k), AA(A);
-//   initialise_const_mat(A_pars, alpha, k, k);
-//   for(int t=0; t<(n-1); t++){
-//     A_pars(x[t], x[t+1]) += 1;
-//   }
-//   rdirichlet_mat(A_pars, AA, Y, alpha, k, k);
-// }
 
 void transition_mat_update2(NumericMatrix B, const arma::ivec & x, IntegerVector y, double alpha, int k, int s, int n){
   NumericMatrix B_pars(k, s);
   initialise_const_mat(B_pars, alpha, k, s);
   for(int t=0; t<n; t++){
-    B_pars(x[t], y[t]) += 1;
+    B_pars(x[t], y[t]) += 1.0;
   }
   rdirichlet_mat(B_pars, B, k, s);
 }
@@ -447,73 +513,69 @@ void save_current_iteration(List& trace_x, List& trace_pi, List& trace_A, List& 
   trace_switching_prob[index] = clone(switching_prob);
 }
 
-//' @export
-// [[Rcpp::export]]
-List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0, NumericMatrix B0, IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool marginal_distr, bool is_fixed_B){
-  NumericVector pi(clone(pi0));
-  NumericMatrix A(clone(A0)), B(clone(B0));
-  List PP(n), QQ(n);
-  for(int t=0; t<n; t++){
-    PP[t] = NumericMatrix(k, k);
-    QQ[t] = NumericMatrix(k, k);
-  }
-  ListOf<NumericMatrix> P(PP), Q(QQ);
-  arma::ivec x(n);
-  
-  int trace_length, index;
-  trace_length = (max_iter - burnin + (thin - 1)) / thin;
-  List trace_x(trace_length), trace_pi(trace_length), trace_A(trace_length), trace_B(trace_length), trace_switching_prob(trace_length), log_posterior(trace_length);
-  double loglik;
-  IntegerVector possible_values = seq_len(k)-1;
-  NumericVector switching_prob(n-1);
-  NumericMatrix marginal_distr_res(k, n);
-  NumericMatrix emission_probs(k, n);
-  
-  for(int iter = 1; iter <= max_iter; iter++){
-    // forward step
-    emission_probs = emission_probs_mat_discrete(y, B, k, n);
-    forward_step(pi, A, emission_probs, P, loglik, k, n);
-    // now backward sampling and nonstochastic backward step
-    backward_sampling(x, P, possible_values, k, n);
-    if(marginal_distr){
-      backward_step(P, Q, k, n);
-      switching_probabilities(Q, switching_prob, k, n);
-      update_marginal_distr(Q, marginal_distr_res, k, n);
-    }
-    
-    transition_mat_update0(pi, x, alpha, k);
-    transition_mat_update1(A, x, alpha, k, n);
-    if(!is_fixed_B) transition_mat_update2(B, x, y, alpha, k, s, n);
-    
-    if((iter > burnin) && ((iter-1) % thin == 0)){
-      index = (iter - burnin - 1)/thin;
-      save_current_iteration(trace_x, trace_pi, trace_A, trace_B, log_posterior, trace_switching_prob,
-                             x, pi, A, B, loglik, switching_prob, index);
-    }
-    if(iter % 1000 == 0) printf("iter %d\n", iter);
-  }
-  // scale marginal distribution estimates
-  arma::mat out(marginal_distr_res.begin(), k, n, false);
-  out /= (float) (max_iter - burnin);
-  
-  return List::create(Rcpp::Named("trace_x") = trace_x,
-                      Rcpp::Named("trace_pi") = trace_pi,
-                      Rcpp::Named("trace_A") = trace_A,
-                      Rcpp::Named("trace_B") = trace_B,
-                      Rcpp::Named("log_posterior") = log_posterior,
-                      Rcpp::Named("switching_prob") = trace_switching_prob,
-                      Rcpp::Named("marginal_distr") = marginal_distr_res);
-}
+// List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0, NumericMatrix B0, IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool marginal_distr, bool is_fixed_B){
+//   NumericVector pi(clone(pi0));
+//   NumericMatrix A(clone(A0)), B(clone(B0));
+//   List PP(n), QQ(n);
+//   for(int t=0; t<n; t++){
+//     PP[t] = NumericMatrix(k, k);
+//     QQ[t] = NumericMatrix(k, k);
+//   }
+//   ListOf<NumericMatrix> P(PP), Q(QQ);
+//   arma::ivec x(n);
+//   
+//   int trace_length, index;
+//   trace_length = (max_iter - burnin + (thin - 1)) / thin;
+//   List trace_x(trace_length), trace_pi(trace_length), trace_A(trace_length), trace_B(trace_length), trace_switching_prob(trace_length), log_posterior(trace_length);
+//   double loglik;
+//   IntegerVector possible_values = seq_len(k)-1;
+//   NumericVector switching_prob(n-1);
+//   NumericMatrix marginal_distr_res(k, n);
+//   NumericMatrix emission_probs(k, n);
+//   
+//   for(int iter = 1; iter <= max_iter; iter++){
+//     // forward step
+//     emission_probs = emission_probs_mat_discrete(y, B, k, n);
+//     forward_step(pi, A, emission_probs, P, loglik, k, n);
+//     // now backward sampling and nonstochastic backward step
+//     backward_sampling(x, P, possible_values, k, n);
+//     if(marginal_distr){
+//       backward_step(P, Q, k, n);
+//       switching_probabilities(Q, switching_prob, k, n);
+//       update_marginal_distr(Q, marginal_distr_res, k, n);
+//     }
+//     
+//     transition_mat_update0(pi, x, alpha, k);
+//     transition_mat_update1(A, x, alpha, k, n);
+//     if(!is_fixed_B) transition_mat_update2(B, x, y, alpha, k, s, n);
+//     
+//     if((iter > burnin) && ((iter-1) % thin == 0)){
+//       index = (iter - burnin - 1)/thin;
+//       save_current_iteration(trace_x, trace_pi, trace_A, trace_B, log_posterior, trace_switching_prob,
+//                              x, pi, A, B, loglik, switching_prob, index);
+//     }
+//     if(iter % 1000 == 0) printf("iter %d\n", iter);
+//   }
+//   // scale marginal distribution estimates
+//   arma::mat out(marginal_distr_res.begin(), k, n, false);
+//   out /= (float) (max_iter - burnin);
+//   
+//   return List::create(Rcpp::Named("trace_x") = trace_x,
+//                       Rcpp::Named("trace_pi") = trace_pi,
+//                       Rcpp::Named("trace_A") = trace_A,
+//                       Rcpp::Named("trace_B") = trace_B,
+//                       Rcpp::Named("log_posterior") = log_posterior,
+//                       Rcpp::Named("switching_prob") = trace_switching_prob,
+//                       Rcpp::Named("marginal_distr") = marginal_distr_res);
+// }
 
-
-//' @export
-// [[Rcpp::export]]
-List gibbs_sampling_fast(IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool marginal_distr, bool is_fixed_B){
-  NumericVector pi(k);
-  NumericMatrix A(k, k), B(k, s);
-  initialise_transition_matrices(pi, A, B, k, s);
-  return gibbs_sampling_fast_with_starting_vals(pi, A, B, y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr, is_fixed_B);
-}
+// 
+// List gibbs_sampling_fast(IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool marginal_distr, bool is_fixed_B){
+//   NumericVector pi(k);
+//   NumericMatrix A(k, k), B(k, s);
+//   initialise_transition_matrices(pi, A, B, k, s);
+//   return gibbs_sampling_fast_with_starting_vals(pi, A, B, y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr, is_fixed_B);
+// }
 
 void initialise_mat_list(List& mat_list, int n, int k, int s){
   for(int t=0; t<n; t++){
@@ -522,20 +584,48 @@ void initialise_mat_list(List& mat_list, int n, int k, int s){
 }
 
 // crossover of (x, y) at point t, resulting in subsequences
-// (R-indexing) 1:t and (t+1):n
-// (Cpp-indexing) 0:(t-1) and t:(n-1) 
+// (Cpp-indexing) 0:t and (t+1):(n) 
+
+//' @export
+// [[Rcpp::export]]
 void crossover(arma::ivec& x, arma::ivec& y, int t){
+  int temp;
+  for(int i=0; i<=t; i++){
+    temp = y[i];
+    y[i] = x[i];
+    x[i] = temp;
+  }
+}
+
+void crossover_one_element(arma::ivec& x, arma::ivec& y, int t){
+  int temp = y[t];
+  y[t] = x[t];
+  x[t] = temp;
+}
+
+//' @export
+// [[Rcpp::export]]
+void crossover_mat(IntegerMatrix X, IntegerMatrix Y, int t, IntegerVector which_rows){
   if(t == 0) 
     return;
-  arma::ivec temp = y.subvec(0, t-1);
+  int m = which_rows.size();
   for(int i=0; i<t; i++){
-    y[i] = x[i];
-    x[i] = temp[i];
+    crossover_one_column(X, Y, i, which_rows, m);
+  }
+}
+
+void crossover_one_column(IntegerMatrix X, IntegerMatrix Y, int t, IntegerVector which_rows, int m){
+  int index, temp;
+  for(int k=0; k<m; k++){
+    index = which_rows[k];
+    temp = Y(index, t);
+    Y(index, t) = X(index, t);
+    X(index, t) = temp;
   }
 }
 
 double crossover_likelihood(const arma::ivec& x, const arma::ivec& y, int t, int n, NumericMatrix Ax, NumericMatrix Ay){
-  if((t == 0) || (t == n)){
+  if((t == 0) || (t==n)){
     return 1.0;
   } else{
     double num = Ax(y[t-1], x[t]) * Ay(x[t-1], y[t]);
@@ -545,11 +635,12 @@ double crossover_likelihood(const arma::ivec& x, const arma::ivec& y, int t, int
 }
 
 
-void uniform_crossover(arma::ivec& x, arma::ivec& y, int n){
-  IntegerVector possible_values = seq_len(n);
-  int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
-  crossover(x, y, m);
-}
+
+// void uniform_crossover(arma::ivec& x, arma::ivec& y, int n){
+//   IntegerVector possible_values = seq_len(n);
+//   int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
+//   crossover(x, y, m);
+// }
 
 void nonuniform_crossover(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n){
   IntegerVector possible_values = seq_len(n);
@@ -569,29 +660,24 @@ void nonuniform_crossover2(arma::ivec& x, arma::ivec& y, NumericVector& probs, i
   }
 }
 
-// void double_crossover(arma::ivec& x, arma::ivec& y, int n){
-//   IntegerVector possible_values = seq_len(n-1);
-//   int start = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
-//   int end = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
-//   if(start == end){
-//     return void();
-//   }
-//   if(start > end){
-//     int a = start;
-//     start = end;
-//     end = a;
-//   }
-//   arma::ivec temp = x.subvec(start, end-1);
-//   x.subvec(start, end-1) = y.subvec(start, end-1);
-//   y.subvec(start, end-1) = temp;
-// }
 
 IntegerVector sample_helper(int n_chains, int n){
-  IntegerVector possible_values = seq_len(n_chains);
+  IntegerVector possible_values = seq_len(n_chains)-1;
   IntegerVector out = RcppArmadillo::sample(possible_values, n, false, NumericVector::create());
   return out;
 }
 
+int sample_int(int n){
+  IntegerVector possible_values = seq_len(n)-1;
+  int out = as<int>(RcppArmadillo::sample(possible_values, 1, false, NumericVector::create()));
+  return out;
+}
+
+int sample_int(int n, NumericVector probs){
+  IntegerVector possible_values = seq_len(n)-1;
+  int out = as<int>(RcppArmadillo::sample(possible_values, 1, false, probs));
+  return out;
+}
 
 void scale_marginal_distr(NumericMatrix marginal_distr_res, int k, int n, int max_iter, int burnin){
   arma::mat out(marginal_distr_res.begin(), k, n, false);
@@ -622,25 +708,73 @@ IntegerMatrix decimal_to_binary_mapping(int K){
   return out;
 }
 
-//' @export
-// [[Rcpp::export]]
-IntegerMatrix calculate_hamming_dist(IntegerMatrix mapping){
-  int K = mapping.nrow();
-  int ncols = mapping.ncol();
-  IntegerMatrix dist(ncols, ncols);
-  // for each pair of configurations calculate hamming distance
-  for(int j=0; j<ncols; j++){
-    for(int jj=0; jj<ncols; jj++){
-      for(int i=0; i<K; i++){
-        if(mapping(i, j) != mapping(i, jj)){
-          dist(j, jj) += 1;
-        }
-      }
-    }
+// IntegerMatrix calculate_hamming_dist(IntegerMatrix& mapping){
+//   int K = mapping.nrow();
+//   int ncols = mapping.ncol();
+//   IntegerMatrix dist(ncols, ncols);
+//   // for each pair of configurations calculate hamming distance
+//   for(int j=0; j<ncols; j++){
+//     for(int jj=0; jj<ncols; jj++){
+//       for(int i=0; i<K; i++){
+//         if(mapping(i, j) != mapping(i, jj)){
+//           dist(j, jj) += 1;
+//         }
+//       }
+//     }
+//   }
+//   return dist;
+// }
+
+int hamming_distance(IntegerVector x, IntegerVector y){
+  int dist = 0;
+  for(int i=0; i<x.size(); i++){
+    if(x[i] != y[i]) dist += 1;
   }
   return dist;
 }
 
+IntegerVector logical_to_ind(LogicalVector x, int n){
+  int length = sum(x);
+  IntegerVector out(length);
+  int counter = 0;
+  for(int i=0; i<n; i++){
+    if(x[i]){
+      out[counter] = i;
+      counter += 1;
+    }
+  }
+  return out;
+}
+
+//' @export
+// [[Rcpp::export]]
+IntegerVector hamming_ball(int index, int radius, IntegerMatrix& mapping){
+  int n_states = mapping.ncol();
+  LogicalVector boolean(n_states);
+  // center of the ball
+  IntegerVector x = mapping(_, index);
+  // find all elements witihn B(x, r)
+  for(int i=0; i<n_states; i++){
+    if(hamming_distance(x, mapping(_, i)) <= radius){
+      boolean[i] = true;
+    }
+  }
+  IntegerVector out = logical_to_ind(boolean, n_states);
+  return out;
+}
+
+//' @export
+// [[Rcpp::export]]
+IntegerMatrix construct_all_hamming_balls(int radius, IntegerMatrix& mapping){
+  IntegerVector x = hamming_ball(0, radius, mapping);
+  int n_elements_inside_ball = x.size();
+  int n_states = mapping.ncol();
+  IntegerMatrix out(n_elements_inside_ball, n_states);
+  for(int i=0; i<n_states; i++){
+    out(_, i) = hamming_ball(i, radius, mapping);
+  }
+  return out;
+}
 
 //' @export
 // [[Rcpp::export]]
@@ -813,31 +947,21 @@ List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s
 
 //' @export
 // [[Rcpp::export]]
-List FHMM(int n_chains, NumericMatrix Y, NumericVector mu, double sigma, NumericMatrix A, double alpha, 
-          int K, int k, int n, 
+List ensemble_HMM(int n_chains, NumericMatrix Y, NumericVector mu, double sigma, NumericMatrix A, double alpha, 
+          int K, int k, int n, int radius, 
                        int max_iter, int burnin, int thin, 
                        bool estimate_marginals, bool parallel_tempering, bool crossovers, 
                        NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, 
                        IntegerVector which_chains, IntegerVector subsequence, IntegerVector x){
   
   // initialise ensemble of n_chains
-  // Ensemble_Gaussian ensemble(n_chains, k, s, n, alpha, fixed_pars);
-  Chain_Factorial chain(K, k, n, alpha);
+  Ensemble_Factorial ensemble(n_chains, K, k, n, alpha, radius);
+  
+  ensemble.set_temperatures(temperatures);
   
   // all parameters must be fixed, given as inputs
-  chain.initialise_pars(mu, sigma, A);
-  chain.update_emission_probs(Y);
-  
-  // now initialise x
-  chain.update_x();
-  chain.convert_x_to_X();
-  //print(chain.get_X());
-  
-  
-  // parallel tempering initilisation
-  // if(parallel_tempering){
-  //   ensemble.activate_parallel_tempering(temperatures);
-  // }
+  ensemble.initialise_pars(mu, sigma, A, x);
+  ensemble.update_emission_probs(Y);
   
   int index;
   int n_chains_out = which_chains.size();
@@ -846,33 +970,26 @@ List FHMM(int n_chains, NumericMatrix Y, NumericVector mu, double sigma, Numeric
   List tr_x(list_length), tr_X(list_length), tr_pi(list_length), tr_A(list_length), tr_mu(list_length), tr_sigma2(list_length), tr_alpha(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length);
   
   Timer timer;
-  nanotime_t t0, t1, t2, t3;
-  NumericVector comp_times(3);
+  nanotime_t t0, t1;
+  t0 = timer.now();
   for(int iter = 1; iter <= max_iter; iter++){
-    t0 = timer.now();
-    t1 = timer.now();
-
-    chain.update_x();
-    chain.convert_x_to_X();
-    t2 = timer.now();
+    ensemble.update_x();
+    
+    if(crossovers && (iter > swaps_burnin) && ((iter-1) % swaps_freq == 0)){
+      ensemble.do_crossover();
+    }
 
     if((iter > burnin) && ((iter-1) % thin == 0)){
       index = (iter - burnin - 1)/thin;
-      chain.copy_values_to_trace(tr_x, tr_X, tr_pi, tr_A, tr_mu, tr_sigma2, tr_alpha, tr_loglik, tr_loglik_cond, tr_switching_prob, index, subsequence);
-      comp_times += 1.0/trace_length * NumericVector::create(t1-t0, t2-t1, t3-t2);
-      comp_times[0] += 1.0/trace_length * (t1 - t0);
-      comp_times[1] += 1.0/trace_length * (t2 - t1);
-      if((iter-1) % swaps_freq == 0){
-        comp_times[2] += 1.0/trace_length * swaps_freq * (t3 - t2);
-      }
+      ensemble.copy_values_to_trace(which_chains, tr_x, tr_X, tr_pi, tr_A, tr_mu, tr_sigma2, tr_alpha, tr_loglik, tr_loglik_cond, tr_switching_prob, index, subsequence);
     }
     if(iter % 1000 == 0) printf("iter %d\n", iter);
   }
-  comp_times.attr("names") = CharacterVector::create("update pars", "update x", "swap/crossover");
-  
+
   //ensemble.scale_marginals(max_iter, burnin);
   //ListOf<NumericMatrix> tr_marginal_distr = ensemble.get_copy_of_marginals(which_chains);
   
+  t1 = timer.now();
   return List::create(Rcpp::Named("trace_x") = tr_x, 
                       Rcpp::Named("trace_X") = tr_X,
                       Rcpp::Named("trace_pi") = tr_pi,
@@ -885,6 +1002,6 @@ List FHMM(int n_chains, NumericMatrix Y, NumericVector mu, double sigma, Numeric
                       Rcpp::Named("switching_prob") = tr_switching_prob,
                       //Rcpp::Named("marginal_distr") = tr_marginal_distr, 
                       //Rcpp::Named("acceptance_ratio") = ensemble.get_acceptance_ratio(), 
-                      Rcpp::Named("timer") = comp_times);
+                      Rcpp::Named("timer") = t1-t0);
   
 }

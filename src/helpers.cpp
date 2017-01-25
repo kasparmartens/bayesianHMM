@@ -65,3 +65,9 @@ IntegerMatrix hamming_distance(NumericMatrix X, int n, int m){
   }
   return dist;
 }
+
+int myPow(int x, int p) {
+  if (p == 0) return 1;
+  if (p == 1) return x;
+  return x * myPow(x, p-1);
+}
