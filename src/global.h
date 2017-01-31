@@ -119,3 +119,5 @@ void crossover_one_element(arma::ivec& x, arma::ivec& y, int t);
 int myPow(int x, int p);
 
 double mylog(double x);
+
+IntegerMatrix construct_all_restricted_space(int nrows_gibbs, IntegerVector which_rows_fixed, IntegerMatrix mapping);

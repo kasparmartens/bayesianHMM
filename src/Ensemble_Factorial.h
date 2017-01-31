@@ -13,7 +13,7 @@ class Ensemble_Factorial{
   int nrows_crossover;
   
 public:
-  Ensemble_Factorial(int n_chains_, int K_, int k_, int n_, double alpha_, int radius_, int nrows_crossover_): 
+  Ensemble_Factorial(int n_chains_, int K_, int k_, int n_, double alpha_, int radius_, int nrows_crossover_, bool HB_sampling, int nrows_gibbs, IntegerMatrix all_combs): 
   chains(std::vector<Chain_Factorial>()) {
     do_parallel_tempering = false;
     n_chains = n_chains_;
@@ -22,7 +22,7 @@ public:
     n = n_;
     nrows_crossover = nrows_crossover_;
     for(int i=0; i<n_chains; i++){
-      chains.push_back(Chain_Factorial(K_, k_, n_, alpha_, radius_));
+      chains.push_back(Chain_Factorial(K_, k_, n_, alpha_, radius_, HB_sampling, nrows_gibbs, all_combs));
     }
   }
   

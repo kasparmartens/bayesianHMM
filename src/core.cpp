@@ -790,6 +790,44 @@ IntegerMatrix construct_all_hamming_balls(int radius, IntegerMatrix& mapping){
   return out;
 }
 
+
+// helpers for block gibbs sampling
+
+bool subset_rows_match(IntegerVector x, IntegerVector y, IntegerVector which_rows){
+  bool match = true;
+  for(int i=0; i<which_rows.size(); i++){
+    if(x[which_rows[i]] != y[which_rows[i]]){
+      match = false;
+    }
+  }
+  return match;
+}
+
+//' @export
+// [[Rcpp::export]]
+IntegerVector construct_restricted_space(int x_t, IntegerVector which_rows_fixed, IntegerMatrix mapping){
+  int n_states = mapping.ncol();
+  LogicalVector boolean(n_states);
+  for(int i=0; i<n_states; i++){
+    // check whether mapping(which_rows_fixed, i) matches mapping(which_rows_fixed, x_t)
+    boolean[i] = subset_rows_match(mapping(_, i), mapping(_, x_t), which_rows_fixed);
+  }
+  IntegerVector out = logical_to_ind(boolean, n_states);
+  return out;
+}
+
+//' @export
+// [[Rcpp::export]]
+IntegerMatrix construct_all_restricted_space(int k_restricted, IntegerVector which_rows_fixed, IntegerMatrix mapping){
+  int n_states = mapping.ncol();
+  IntegerMatrix out(k_restricted, n_states);
+  for(int i=0; i<n_states; i++){
+    out(_, i) = construct_restricted_space(i, which_rows_fixed, mapping);
+  }
+  return out;
+}
+
+
 //' @export
 // [[Rcpp::export]]
 List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int n, 
@@ -966,16 +1004,16 @@ List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s
 
 //' @export
 // [[Rcpp::export]]
-List ensemble_HMM(int n_chains, NumericMatrix Y, NumericMatrix mu, double sigma, NumericMatrix A, double alpha, 
+List ensemble_FHMM(int n_chains, NumericMatrix Y, NumericMatrix mu, double sigma, NumericMatrix A, double alpha, 
           int K, int k, int n, int radius, 
                        int max_iter, int burnin, int thin, 
                        bool estimate_marginals, bool parallel_tempering, bool crossovers, 
                        NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, 
                        IntegerVector which_chains, IntegerVector subsequence, IntegerVector x, 
-                       int nrows_crossover){
+                       int nrows_crossover, bool HB_sampling, int nrows_gibbs, IntegerMatrix all_combs){
   
   // initialise ensemble of n_chains
-  Ensemble_Factorial ensemble(n_chains, K, k, n, alpha, radius, nrows_crossover);
+  Ensemble_Factorial ensemble(n_chains, K, k, n, alpha, radius, nrows_crossover, HB_sampling, nrows_gibbs, all_combs);
   
   ensemble.set_temperatures(temperatures);
   
@@ -994,6 +1032,7 @@ List ensemble_HMM(int n_chains, NumericMatrix Y, NumericMatrix mu, double sigma,
   nanotime_t t0, t1;
   t0 = timer.now();
   for(int iter = 1; iter <= max_iter; iter++){
+    
     ensemble.update_x();
     
     if(crossovers && (iter > swaps_burnin) && ((iter-1) % swaps_freq == 0)){

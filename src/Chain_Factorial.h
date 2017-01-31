@@ -10,26 +10,44 @@ class Chain_Factorial : public Chain {
   double a_sigma, b_sigma, rho;
   NumericMatrix mu;
   double sigma;
-  int K, k_hamming;
+  int K, k_restricted;
   IntegerMatrix X;
-  IntegerMatrix mapping, hamming_balls;
+  IntegerMatrix mapping, hamming_balls, restricted_space, all_combinations;
   ListOf<NumericMatrix> P_FHMM, Q_FHMM;
+  int nrows_gibbs;
+  bool HB_sampling;
   
 public:
-  Chain_Factorial(int K_, int k, int n, double alpha, int radius) : Chain(k, n, alpha, true){
+  Chain_Factorial(int K_, int k, int n, double alpha, int radius, bool HB_sampling_, int nrows_gibbs_, IntegerMatrix all_combinations_) : Chain(k, n, alpha, true){
     a_sigma = 0.01;
     b_sigma = 0.01;
     rho = 0.01;
     K = K_;
     mapping = decimal_to_binary_mapping(K);
     X = IntegerMatrix(K, n);
-    hamming_balls = construct_all_hamming_balls(radius, mapping);
-    k_hamming = hamming_balls.nrow();
+    HB_sampling = HB_sampling_;
+    nrows_gibbs = nrows_gibbs_;
+    all_combinations = all_combinations_;
+    if(HB_sampling){
+      // hamming ball sampling
+      hamming_balls = construct_all_hamming_balls(radius, mapping);
+      k_restricted = hamming_balls.nrow();
+    } else{
+      // block gibbs sampling
+      k_restricted = myPow(2, nrows_gibbs);
+      if(nrows_gibbs == K){
+        restricted_space = IntegerMatrix(k_restricted, k_restricted);
+        for(int i=0; i<k_restricted; i++){
+          restricted_space(_, i) = seq_len(k_restricted)-1;
+        }
+      }
+    }
+
     
     List PP(n), QQ(n);
     for(int t=0; t<n; t++){
-      PP[t] = NumericMatrix(k_hamming, k_hamming);
-      QQ[t] = NumericMatrix(k_hamming, k_hamming);
+      PP[t] = NumericMatrix(k_restricted, k_restricted);
+      QQ[t] = NumericMatrix(k_restricted, k_restricted);
     }
     P_FHMM = ListOf<NumericMatrix>(PP);
     Q_FHMM = ListOf<NumericMatrix>(QQ);
@@ -117,16 +135,58 @@ public:
   }
   
   void update_x(){
+    if(HB_sampling){
+      update_x_HammingBall();
+    } else{
+      update_x_BlockGibbs();
+    }
+  }
+  
+  void update_x_BlockGibbs(){
+    bool estimate_marginals = false;
+    
+    if(nrows_gibbs == K){
+      // forward step
+      FHMM_forward_step(pi, A, emission_probs, P_FHMM, loglik_marginal, k_restricted, n, x, restricted_space);
+      
+      // now backward sampling
+      FHMM_backward_sampling(x, P_FHMM, k_restricted, n, restricted_space);
+      
+    } else{
+      for(int i=0; i<all_combinations.ncol(); i++){
+        // Restrict the state space to block Gibbs updates
+        IntegerVector which_rows_fixed = all_combinations(_, i);
+        //IntegerVector which_rows_fixed = sample_helper(K, K-nrows_gibbs);
+        restricted_space = construct_all_restricted_space(k_restricted, which_rows_fixed, mapping);
+        
+        // forward step
+        FHMM_forward_step(pi, A, emission_probs, P_FHMM, loglik_marginal, k_restricted, n, x, restricted_space);
+        
+        // now backward sampling
+        FHMM_backward_sampling(x, P_FHMM, k_restricted, n, restricted_space);
+      }
+      
+    }
+    
+
+    
+    // conditional loglikelihood
+    loglik_cond = loglikelihood(x, emission_probs, n);
+    
+    convert_x_to_X();
+  }
+  
+  void update_x_HammingBall(){
     bool estimate_marginals = false;
     
     // Hamming ball sampling: sample u_t and overwrite x_t
     sample_within_hamming_ball(x, n, hamming_balls);
     
     // forward step
-    FHMM_forward_step(pi, A, emission_probs, P_FHMM, loglik_marginal, k_hamming, n, x, hamming_balls);
+    FHMM_forward_step(pi, A, emission_probs, P_FHMM, loglik_marginal, k_restricted, n, x, hamming_balls);
     
     // now backward sampling
-    FHMM_backward_sampling(x, P_FHMM, k_hamming, n, hamming_balls);
+    FHMM_backward_sampling(x, P_FHMM, k_restricted, n, hamming_balls);
     
     // conditional loglikelihood
     loglik_cond = loglikelihood(x, emission_probs, n);

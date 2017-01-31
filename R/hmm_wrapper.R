@@ -108,14 +108,17 @@ parallel_tempering = function(type, n_chains, temperatures, y, k, alpha, max_ite
 }
 
 #' @export
-FHMM = function(n_chains, n, Y, K, mu, sigma, A, radius, max_iter, burnin, x_init, alpha = 0.1, swaps_burnin, which_chains = 1:n_chains, temperatures = rep(1, n_chains), swaps_freq = 1, thin = 1, crossovers = FALSE, nrows_crossover = 1){
-  res = ensemble_HMM(n_chains = n_chains, Y = Y, mu = mu, sigma = sigma, A = A, alpha = alpha, 
+FHMM = function(n_chains, n, Y, K, mu, sigma, A, radius, max_iter, burnin, x_init, alpha = 0.1, swaps_burnin, which_chains = 1:n_chains, temperatures = rep(1, n_chains), swaps_freq = 1, thin = 1, 
+                crossovers = FALSE, nrows_crossover = 1, 
+                HB_sampling = TRUE, nrows_gibbs = 1){
+  res = ensemble_FHMM(n_chains = n_chains, Y = Y, mu = mu, sigma = sigma, A = A, alpha = alpha, 
                      K = K, k = 2**K, n = n, radius = radius, 
                      max_iter = max_iter, burnin = burnin, thin = thin, 
                      estimate_marginals = FALSE, parallel_tempering = TRUE, crossovers = crossovers, 
                      temperatures = temperatures, swap_type = 0, swaps_burnin = swaps_burnin, swaps_freq = swaps_freq, 
                      which_chains = which_chains, subsequence = as.numeric(0), x = x_init-1, 
-                     nrows_crossover = nrows_crossover)
+                     nrows_crossover = nrows_crossover, HB_sampling = HB_sampling, nrows_gibbs = nrows_gibbs, 
+                     all_combs = combn(0:(K-1), ifelse(nrows_gibbs == K, 1, K-nrows_gibbs)))
   res$type = "factorial"
   class(res) = "FHMM"
   n_chains_out = length(which_chains)
