@@ -11,6 +11,7 @@ class Ensemble_Gaussian{
   bool do_parallel_tempering;
   int n_accepts, n_total;
   std::vector<Chain_Gaussian> chains;
+  int crossover_start, crossover_end, crossover_flipped;
     
   public:
     Ensemble_Gaussian(int K, int k, int n, double alpha, bool is_fixed_B);
@@ -20,6 +21,10 @@ class Ensemble_Gaussian{
     double get_acceptance_ratio(){
       double ratio = (double) n_accepts / (double) n_total;
       return ratio;
+    }
+    
+    NumericVector get_crossovers(){
+      return NumericVector::create(crossover_start, crossover_end, crossover_flipped);
     }
     
     void initialise_pars();

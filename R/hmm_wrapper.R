@@ -29,7 +29,7 @@ postprocess_chains.FHMM = function(res, n_chains_out, burnin, max_iter, thin){
   seq_ind = lapply(1:n_chains_out, function(i)seq(i, m, n_chains_out))
   res$trace_x = lapply(seq_ind, function(ind) do.call("rbind", res$trace_x[ind]))
   res$trace_X = lapply(seq_ind, function(ind){
-    do.call("rbind", lapply(res$trace_X[ind], colSums))
+    res$trace_X[ind]
   })
   res$trace_pi = lapply(seq_ind, function(ind) res$trace_pi[ind])
   res$trace_A = lapply(seq_ind, function(ind) res$trace_A[ind])
@@ -108,13 +108,14 @@ parallel_tempering = function(type, n_chains, temperatures, y, k, alpha, max_ite
 }
 
 #' @export
-FHMM = function(n_chains, n, Y, K, mu, sigma, A, radius, max_iter, burnin, x_init, alpha = 0.1, swaps_burnin, which_chains = 1:n_chains, temperatures = rep(1, n_chains), swaps_freq = 1, thin = 1, crossovers = FALSE){
+FHMM = function(n_chains, n, Y, K, mu, sigma, A, radius, max_iter, burnin, x_init, alpha = 0.1, swaps_burnin, which_chains = 1:n_chains, temperatures = rep(1, n_chains), swaps_freq = 1, thin = 1, crossovers = FALSE, nrows_crossover = 1){
   res = ensemble_HMM(n_chains = n_chains, Y = Y, mu = mu, sigma = sigma, A = A, alpha = alpha, 
                      K = K, k = 2**K, n = n, radius = radius, 
                      max_iter = max_iter, burnin = burnin, thin = thin, 
                      estimate_marginals = FALSE, parallel_tempering = TRUE, crossovers = crossovers, 
-                     temperatures = temperatures, swap_type = 0, swaps_burnin = 100, swaps_freq = 10, 
-                     which_chains = which_chains, subsequence = as.numeric(0), x = x_init-1)
+                     temperatures = temperatures, swap_type = 0, swaps_burnin = swaps_burnin, swaps_freq = swaps_freq, 
+                     which_chains = which_chains, subsequence = as.numeric(0), x = x_init-1, 
+                     nrows_crossover = nrows_crossover)
   res$type = "factorial"
   class(res) = "FHMM"
   n_chains_out = length(which_chains)

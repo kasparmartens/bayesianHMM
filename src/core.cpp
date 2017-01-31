@@ -322,7 +322,7 @@ void update_alpha(double& alpha, NumericMatrix Y, NumericMatrix A_pars, double a
   // accept or reject
   if(R::runif(0, 1) < exp(logprob_proposed - logprob_current)){
     alpha = alpha_proposed;
-    printf("new alpha: %f\n", alpha);
+    //printf("new alpha: %f\n", alpha);
   }
 }
 
@@ -597,6 +597,15 @@ void crossover(arma::ivec& x, arma::ivec& y, int t){
   }
 }
 
+void crossover2(arma::ivec& x, arma::ivec& y, int t, int n){
+  int temp;
+  for(int i=t+1; i<n; i++){
+    temp = y[i];
+    y[i] = x[i];
+    x[i] = temp;
+  }
+}
+
 void crossover_one_element(arma::ivec& x, arma::ivec& y, int t){
   int temp = y[t];
   y[t] = x[t];
@@ -606,10 +615,15 @@ void crossover_one_element(arma::ivec& x, arma::ivec& y, int t){
 //' @export
 // [[Rcpp::export]]
 void crossover_mat(IntegerMatrix X, IntegerMatrix Y, int t, IntegerVector which_rows){
-  if(t == 0) 
-    return;
   int m = which_rows.size();
-  for(int i=0; i<t; i++){
+  for(int i=0; i<=t; i++){
+    crossover_one_column(X, Y, i, which_rows, m);
+  }
+}
+
+void crossover2_mat(IntegerMatrix X, IntegerMatrix Y, int t, int n, IntegerVector which_rows){
+  int m = which_rows.size();
+  for(int i=t+1; i<n; i++){
     crossover_one_column(X, Y, i, which_rows, m);
   }
 }
@@ -642,23 +656,23 @@ double crossover_likelihood(const arma::ivec& x, const arma::ivec& y, int t, int
 //   crossover(x, y, m);
 // }
 
-void nonuniform_crossover(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n){
-  IntegerVector possible_values = seq_len(n);
-  int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, probs));
-  crossover(x, y, m);
-}
-
-void nonuniform_crossover2(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n){
-  IntegerVector possible_values = seq_len(2*n);
-  int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, probs));
-  if(m <= n){
-    //printf("normal crossover, m = %d", m);
-    crossover(x, y, m);
-  } else{
-    //printf("flipped crossover, m-n = %d", m-n);
-    crossover(y, x, m-n);
-  }
-}
+// void nonuniform_crossover(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n){
+//   IntegerVector possible_values = seq_len(n);
+//   int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, probs));
+//   crossover(x, y, m);
+// }
+// 
+// void nonuniform_crossover2(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n){
+//   IntegerVector possible_values = seq_len(2*n);
+//   int m = as<int>(RcppArmadillo::sample(possible_values, 1, false, probs));
+//   if(m <= n){
+//     //printf("normal crossover, m = %d", m);
+//     crossover(x, y, m);
+//   } else{
+//     //printf("flipped crossover, m-n = %d", m-n);
+//     crossover(y, x, m-n);
+//   }
+// }
 
 
 IntegerVector sample_helper(int n_chains, int n){
@@ -810,6 +824,7 @@ List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int n
   int trace_length = (max_iter - burnin + (thin - 1)) / thin;
   int list_length = n_chains_out * trace_length;
   List tr_x(list_length), tr_pi(list_length), tr_A(list_length), tr_mu(list_length), tr_sigma2(list_length), tr_alpha(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length);
+  List tr_crossovers(trace_length);
   
   Timer timer;
   nanotime_t t0, t1, t2, t3;
@@ -834,6 +849,9 @@ List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int n
     if((iter > burnin) && ((iter-1) % thin == 0)){
       index = (iter - burnin - 1)/thin;
       ensemble.copy_values_to_trace(which_chains, tr_x, tr_pi, tr_A, tr_mu, tr_sigma2, tr_alpha, tr_loglik, tr_loglik_cond, tr_switching_prob, index, subsequence);
+      if(crossovers && (iter > swaps_burnin) && ((iter-1) % swaps_freq == 0)){
+        tr_crossovers[index] = ensemble.get_crossovers();  
+      }
       comp_times += 1.0/trace_length * NumericVector::create(t1-t0, t2-t1, t3-t2);
       comp_times[0] += 1.0/trace_length * (t1 - t0);
       comp_times[1] += 1.0/trace_length * (t2 - t1);
@@ -859,7 +877,8 @@ List ensemble_gaussian(int n_chains, NumericVector y, double alpha, int k, int n
                       Rcpp::Named("switching_prob") = tr_switching_prob,
                       Rcpp::Named("marginal_distr") = tr_marginal_distr, 
                       Rcpp::Named("acceptance_ratio") = ensemble.get_acceptance_ratio(), 
-                      Rcpp::Named("timer") = comp_times);
+                      Rcpp::Named("timer") = comp_times, 
+                      Rcpp::Named("crossovers") = tr_crossovers);
   
 }
 
@@ -947,15 +966,16 @@ List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s
 
 //' @export
 // [[Rcpp::export]]
-List ensemble_HMM(int n_chains, NumericMatrix Y, NumericVector mu, double sigma, NumericMatrix A, double alpha, 
+List ensemble_HMM(int n_chains, NumericMatrix Y, NumericMatrix mu, double sigma, NumericMatrix A, double alpha, 
           int K, int k, int n, int radius, 
                        int max_iter, int burnin, int thin, 
                        bool estimate_marginals, bool parallel_tempering, bool crossovers, 
                        NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, 
-                       IntegerVector which_chains, IntegerVector subsequence, IntegerVector x){
+                       IntegerVector which_chains, IntegerVector subsequence, IntegerVector x, 
+                       int nrows_crossover){
   
   // initialise ensemble of n_chains
-  Ensemble_Factorial ensemble(n_chains, K, k, n, alpha, radius);
+  Ensemble_Factorial ensemble(n_chains, K, k, n, alpha, radius, nrows_crossover);
   
   ensemble.set_temperatures(temperatures);
   
@@ -968,6 +988,7 @@ List ensemble_HMM(int n_chains, NumericMatrix Y, NumericVector mu, double sigma,
   int trace_length = (max_iter - burnin + (thin - 1)) / thin;
   int list_length = n_chains_out * trace_length;
   List tr_x(list_length), tr_X(list_length), tr_pi(list_length), tr_A(list_length), tr_mu(list_length), tr_sigma2(list_length), tr_alpha(list_length), tr_switching_prob(list_length), tr_loglik(list_length), tr_loglik_cond(list_length);
+  List tr_crossovers(trace_length);
   
   Timer timer;
   nanotime_t t0, t1;
@@ -982,6 +1003,9 @@ List ensemble_HMM(int n_chains, NumericMatrix Y, NumericVector mu, double sigma,
     if((iter > burnin) && ((iter-1) % thin == 0)){
       index = (iter - burnin - 1)/thin;
       ensemble.copy_values_to_trace(which_chains, tr_x, tr_X, tr_pi, tr_A, tr_mu, tr_sigma2, tr_alpha, tr_loglik, tr_loglik_cond, tr_switching_prob, index, subsequence);
+      if(crossovers && (iter > swaps_burnin) && ((iter-1) % swaps_freq == 0)){
+        tr_crossovers[index] = ensemble.get_crossovers();  
+      }
     }
     if(iter % 1000 == 0) printf("iter %d\n", iter);
   }
@@ -1002,6 +1026,7 @@ List ensemble_HMM(int n_chains, NumericMatrix Y, NumericVector mu, double sigma,
                       Rcpp::Named("switching_prob") = tr_switching_prob,
                       //Rcpp::Named("marginal_distr") = tr_marginal_distr, 
                       //Rcpp::Named("acceptance_ratio") = ensemble.get_acceptance_ratio(), 
-                      Rcpp::Named("timer") = t1-t0);
+                      Rcpp::Named("timer") = t1-t0, 
+                      Rcpp::Named("crossovers") = tr_crossovers);
   
 }

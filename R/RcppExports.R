@@ -42,7 +42,7 @@ ensemble_discrete <- function(n_chains, y, alpha, k, s, n, max_iter, burnin, thi
 }
 
 #' @export
-ensemble_HMM <- function(n_chains, Y, mu, sigma, A, alpha, K, k, n, radius, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x) {
-    .Call('ensembleHMM_ensemble_HMM', PACKAGE = 'ensembleHMM', n_chains, Y, mu, sigma, A, alpha, K, k, n, radius, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x)
+ensemble_HMM <- function(n_chains, Y, mu, sigma, A, alpha, K, k, n, radius, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x, nrows_crossover) {
+    .Call('ensembleHMM_ensemble_HMM', PACKAGE = 'ensembleHMM', n_chains, Y, mu, sigma, A, alpha, K, k, n, radius, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x, nrows_crossover)
 }
 

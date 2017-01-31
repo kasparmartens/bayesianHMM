@@ -50,6 +50,8 @@ void initialise_transition_matrices(NumericVector pi, NumericMatrix A, NumericMa
 //void nonuniform_crossover(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n);
 //void nonuniform_crossover2(arma::ivec& x, arma::ivec& y, NumericVector& probs, int n);
 void crossover(arma::ivec& x, arma::ivec& y, int t);
+void crossover2(arma::ivec& x, arma::ivec& y, int t, int n);
+void crossover2_mat(IntegerMatrix X, IntegerMatrix Y, int t, int n, IntegerVector which_rows);
 
 void uniform_crossover(arma::ivec& x, arma::ivec& y, int n);
 
@@ -115,3 +117,5 @@ void crossover_one_column(IntegerMatrix X, IntegerMatrix Y, int t, IntegerVector
 void crossover_one_element(arma::ivec& x, arma::ivec& y, int t);
 
 int myPow(int x, int p);
+
+double mylog(double x);

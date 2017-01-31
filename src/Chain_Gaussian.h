@@ -16,7 +16,7 @@ class Chain_Gaussian : public Chain {
       sigma2 = NumericVector(k);
       a_sigma = 0.01;
       b_sigma = 0.01;
-      rho = 0.01;
+      rho = 0.1;
     }
     
     NumericVector& get_mu(){
@@ -55,9 +55,12 @@ class Chain_Gaussian : public Chain {
     
     void initialise_pars(NumericVector mu_, NumericVector sigma2_, IntegerVector x_){
       // draw pi from the prior
-      NumericVector pi_pars(k);
-      initialise_const_vec(pi_pars, alpha, k);
-      rdirichlet_vec(pi_pars, pi, k);
+      // NumericVector pi_pars(k);
+      // initialise_const_vec(pi_pars, alpha, k);
+      // rdirichlet_vec(pi_pars, pi, k);
+      for(int i=0; i<k; i++){
+        pi[i] = 1.0 / k;
+      }
       // draw A from the prior
       transition_mat_update1(A, A_pars, x, A_gamma, alpha, k, 0);
       // pars are fixed
@@ -72,9 +75,10 @@ class Chain_Gaussian : public Chain {
     }
     
     void update_pars(NumericVector& y){
-      transition_mat_update0(pi, x, alpha, k);
+      //transition_mat_update0(pi, x, alpha, k);
+      //transition_mat_update1(A, A_pars, x, A_gamma, alpha, k, n);
+      update_alpha(alpha, A, A_pars, a0, b0, k);
       transition_mat_update1(A, A_pars, x, A_gamma, alpha, k, n);
-      //update_alpha(alpha, A, A_pars, a0, b0, k);
       if(!is_fixed_B){
         update_pars_gaussian(y, x, mu, sigma2, rho, inv_temperature, a_sigma, b_sigma, k, n);
       }
@@ -83,14 +87,10 @@ class Chain_Gaussian : public Chain {
     void FB_step(NumericVector& y, bool estimate_marginals){
 
       emission_probs = emission_probs_mat_gaussian(y, mu, sigma2, k, n);
-      // forward step
-      if(is_tempered){
-        emission_probs_tempered = temper_emission_probs(emission_probs, inv_temperature, k, n);
-        forward_step(pi, A, emission_probs_tempered, P, loglik_marginal, k, n);
-      }
-      else{
-        forward_step(pi, A, emission_probs, P, loglik_marginal, k, n);
-      }
+      emission_probs = temper_emission_probs(emission_probs, inv_temperature, k, n);
+      
+      forward_step(pi, A, emission_probs, P, loglik_marginal, k, n);
+      
       // now backward sampling
       backward_sampling(x, P, possible_values, k, n);
       // and nonstochastic backward step (optional)
@@ -101,12 +101,7 @@ class Chain_Gaussian : public Chain {
       }
       
       // conditional loglikelihood
-      if(is_tempered){
-        loglik_cond = loglikelihood(x, emission_probs_tempered, n);
-      }
-      else{
-        loglik_cond = loglikelihood(x, emission_probs, n);
-      }
+      loglik_cond = loglikelihood(x, emission_probs, n);
     }
     
     void copy_values_to_trace(List& trace_x, List& trace_pi, List& trace_A, List& trace_mu, List& trace_sigma2, List& trace_alpha, List& log_posterior, List& log_posterior_cond, List& trace_switching_prob, int index, IntegerVector subsequence){
@@ -123,6 +118,16 @@ class Chain_Gaussian : public Chain {
       IntegerVector subseq_small(subsequence.begin(), subsequence.end()-1);
       NumericVector switching_prob_small = switching_prob[subseq_small];
       trace_switching_prob[index] = clone(switching_prob_small);
+    }
+    
+    double pointwise_loglik(int t){
+      if(t == 0){
+        return mylog(A(x[t], x[t+1])) + mylog(emission_probs(x[t], t));
+      } else if(t == n-1){
+        return mylog(A(x[t-1], x[t])) + mylog(emission_probs(x[t], t));
+      } else{
+        return mylog(A(x[t-1], x[t])) + mylog(A(x[t], x[t+1])) + mylog(emission_probs(x[t], t));
+      }
     }
     
 };

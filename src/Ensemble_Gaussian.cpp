@@ -60,53 +60,39 @@ void Ensemble_Gaussian::scale_marginals(int max_iter, int burnin){
 
 void Ensemble_Gaussian::uniform_crossover(int i, int j){
   int t0 = sample_int(n);
+  crossover_start = t0;
   // flip a coin
   if(R::runif(0, 1) < 0.5){
+    crossover_flipped = 0;
     crossover(chains[i].get_x(), chains[j].get_x(), t0);
   } else{
-    crossover(chains[j].get_x(), chains[i].get_x(), t0);
+    crossover_flipped = 1;
+    crossover2(chains[i].get_x(), chains[j].get_x(), t0, n);
   }
 }
 
 void Ensemble_Gaussian::nonuniform_crossover(NumericVector probs, int i, int j){
   int t0 = sample_int(2*n, probs);
+  //print(probs);
   if(t0 < n){
+    crossover_end = t0;
     crossover(chains[i].get_x(), chains[j].get_x(), t0);
   } else{
-    crossover(chains[j].get_x(), chains[i].get_x(), t0-n);
+    crossover_end = t0-n;
+    crossover_flipped = 1 - crossover_flipped;
+    crossover2(chains[i].get_x(), chains[j].get_x(), t0-n, n);
   }
 }
 
 double Ensemble_Gaussian::crossover_likelihood(int i, int j, int t){
-  NumericMatrix Ai = chains[i].get_A();
-  NumericMatrix Aj = chains[j].get_A();
-  double beta_i = chains[i].get_inv_temperature();
-  double beta_j = chains[j].get_inv_temperature();
-  NumericMatrix emissions_i = chains[i].get_emission_probs();
-  NumericMatrix emissions_j = chains[j].get_emission_probs();
   
-  double denom_x = 1.0;
-  if(t<n-1){
-    denom_x = Ai(chains[i].get_x()[t], chains[i].get_x()[t+1]) * 
-      Aj(chains[j].get_x()[t], chains[j].get_x()[t+1]);
-  } 
-  
-  double log_denom_y = beta_i * log(emissions_i(chains[i].get_x()[t], t)+1.0e-16) + 
-    beta_j * log(emissions_j(chains[j].get_x()[t], t)+1.0e-16);
+  double log_denom = chains[i].pointwise_loglik(t) + chains[j].pointwise_loglik(t);
   
   crossover_one_element(chains[i].get_x(), chains[j].get_x(), t);
   
-  double num_x = 1.0;
-  if(t<n-1){
-    num_x = Ai(chains[i].get_x()[t], chains[i].get_x()[t+1]) * 
-      Aj(chains[j].get_x()[t], chains[j].get_x()[t+1]);
-  } 
-  
-  double log_num_y = beta_i * log(emissions_i(chains[i].get_x()[t], t)+1.0e-16) + 
-    beta_j * log(emissions_j(chains[j].get_x()[t], t)+1.0e-16);
-  
-  double log_x = log(num_x/denom_x + 1.0e-16);
-  return log_x + log_num_y - log_denom_y;
+  double log_num = chains[i].pointwise_loglik(t) + chains[j].pointwise_loglik(t);
+
+  return log_num - log_denom;
 }
 
 void Ensemble_Gaussian::do_crossover(){
@@ -122,7 +108,7 @@ void Ensemble_Gaussian::do_crossover(){
     log_probs[t] = log_cumprod;
   }
   for(int t=0; t<n; t++){
-    log_cumprod += crossover_likelihood(j, i, t);
+    log_cumprod += crossover_likelihood(i, j, t);
     log_probs[t+n] = log_cumprod;
   }
   NumericVector probs = exp(log_probs - max(log_probs));

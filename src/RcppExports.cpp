@@ -23,47 +23,29 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// gibbs_sampling_fast_with_starting_vals
-List gibbs_sampling_fast_with_starting_vals(NumericVector pi0, NumericMatrix A0, NumericMatrix B0, IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool marginal_distr, bool is_fixed_B);
-RcppExport SEXP ensembleHMM_gibbs_sampling_fast_with_starting_vals(SEXP pi0SEXP, SEXP A0SEXP, SEXP B0SEXP, SEXP ySEXP, SEXP alphaSEXP, SEXP kSEXP, SEXP sSEXP, SEXP nSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP marginal_distrSEXP, SEXP is_fixed_BSEXP) {
+// crossover
+void crossover(arma::ivec& x, arma::ivec& y, int t);
+RcppExport SEXP ensembleHMM_crossover(SEXP xSEXP, SEXP ySEXP, SEXP tSEXP) {
 BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< NumericVector >::type pi0(pi0SEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type A0(A0SEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type B0(B0SEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type y(ySEXP);
-    Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
-    Rcpp::traits::input_parameter< int >::type k(kSEXP);
-    Rcpp::traits::input_parameter< int >::type s(sSEXP);
-    Rcpp::traits::input_parameter< int >::type n(nSEXP);
-    Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
-    Rcpp::traits::input_parameter< int >::type burnin(burninSEXP);
-    Rcpp::traits::input_parameter< int >::type thin(thinSEXP);
-    Rcpp::traits::input_parameter< bool >::type marginal_distr(marginal_distrSEXP);
-    Rcpp::traits::input_parameter< bool >::type is_fixed_B(is_fixed_BSEXP);
-    rcpp_result_gen = Rcpp::wrap(gibbs_sampling_fast_with_starting_vals(pi0, A0, B0, y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr, is_fixed_B));
-    return rcpp_result_gen;
+    Rcpp::traits::input_parameter< arma::ivec& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< arma::ivec& >::type y(ySEXP);
+    Rcpp::traits::input_parameter< int >::type t(tSEXP);
+    crossover(x, y, t);
+    return R_NilValue;
 END_RCPP
 }
-// gibbs_sampling_fast
-List gibbs_sampling_fast(IntegerVector y, double alpha, int k, int s, int n, int max_iter, int burnin, int thin, bool marginal_distr, bool is_fixed_B);
-RcppExport SEXP ensembleHMM_gibbs_sampling_fast(SEXP ySEXP, SEXP alphaSEXP, SEXP kSEXP, SEXP sSEXP, SEXP nSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP marginal_distrSEXP, SEXP is_fixed_BSEXP) {
+// crossover_mat
+void crossover_mat(IntegerMatrix X, IntegerMatrix Y, int t, IntegerVector which_rows);
+RcppExport SEXP ensembleHMM_crossover_mat(SEXP XSEXP, SEXP YSEXP, SEXP tSEXP, SEXP which_rowsSEXP) {
 BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< IntegerVector >::type y(ySEXP);
-    Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
-    Rcpp::traits::input_parameter< int >::type k(kSEXP);
-    Rcpp::traits::input_parameter< int >::type s(sSEXP);
-    Rcpp::traits::input_parameter< int >::type n(nSEXP);
-    Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
-    Rcpp::traits::input_parameter< int >::type burnin(burninSEXP);
-    Rcpp::traits::input_parameter< int >::type thin(thinSEXP);
-    Rcpp::traits::input_parameter< bool >::type marginal_distr(marginal_distrSEXP);
-    Rcpp::traits::input_parameter< bool >::type is_fixed_B(is_fixed_BSEXP);
-    rcpp_result_gen = Rcpp::wrap(gibbs_sampling_fast(y, alpha, k, s, n, max_iter, burnin, thin, marginal_distr, is_fixed_B));
-    return rcpp_result_gen;
+    Rcpp::traits::input_parameter< IntegerMatrix >::type X(XSEXP);
+    Rcpp::traits::input_parameter< IntegerMatrix >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< int >::type t(tSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type which_rows(which_rowsSEXP);
+    crossover_mat(X, Y, t, which_rows);
+    return R_NilValue;
 END_RCPP
 }
 // decimal_to_binary_mapping
@@ -77,14 +59,28 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// calculate_hamming_dist
-IntegerMatrix calculate_hamming_dist(IntegerMatrix mapping);
-RcppExport SEXP ensembleHMM_calculate_hamming_dist(SEXP mappingSEXP) {
+// hamming_ball
+IntegerVector hamming_ball(int index, int radius, IntegerMatrix& mapping);
+RcppExport SEXP ensembleHMM_hamming_ball(SEXP indexSEXP, SEXP radiusSEXP, SEXP mappingSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< IntegerMatrix >::type mapping(mappingSEXP);
-    rcpp_result_gen = Rcpp::wrap(calculate_hamming_dist(mapping));
+    Rcpp::traits::input_parameter< int >::type index(indexSEXP);
+    Rcpp::traits::input_parameter< int >::type radius(radiusSEXP);
+    Rcpp::traits::input_parameter< IntegerMatrix& >::type mapping(mappingSEXP);
+    rcpp_result_gen = Rcpp::wrap(hamming_ball(index, radius, mapping));
+    return rcpp_result_gen;
+END_RCPP
+}
+// construct_all_hamming_balls
+IntegerMatrix construct_all_hamming_balls(int radius, IntegerMatrix& mapping);
+RcppExport SEXP ensembleHMM_construct_all_hamming_balls(SEXP radiusSEXP, SEXP mappingSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type radius(radiusSEXP);
+    Rcpp::traits::input_parameter< IntegerMatrix& >::type mapping(mappingSEXP);
+    rcpp_result_gen = Rcpp::wrap(construct_all_hamming_balls(radius, mapping));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -149,21 +145,22 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// FHMM
-List FHMM(int n_chains, NumericMatrix Y, NumericVector mu, double sigma, NumericMatrix A, double alpha, int K, int k, int n, int max_iter, int burnin, int thin, bool estimate_marginals, bool parallel_tempering, bool crossovers, NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, IntegerVector which_chains, IntegerVector subsequence, IntegerVector x);
-RcppExport SEXP ensembleHMM_FHMM(SEXP n_chainsSEXP, SEXP YSEXP, SEXP muSEXP, SEXP sigmaSEXP, SEXP ASEXP, SEXP alphaSEXP, SEXP KSEXP, SEXP kSEXP, SEXP nSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP estimate_marginalsSEXP, SEXP parallel_temperingSEXP, SEXP crossoversSEXP, SEXP temperaturesSEXP, SEXP swap_typeSEXP, SEXP swaps_burninSEXP, SEXP swaps_freqSEXP, SEXP which_chainsSEXP, SEXP subsequenceSEXP, SEXP xSEXP) {
+// ensemble_HMM
+List ensemble_HMM(int n_chains, NumericMatrix Y, NumericMatrix mu, double sigma, NumericMatrix A, double alpha, int K, int k, int n, int radius, int max_iter, int burnin, int thin, bool estimate_marginals, bool parallel_tempering, bool crossovers, NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, IntegerVector which_chains, IntegerVector subsequence, IntegerVector x, int nrows_crossover);
+RcppExport SEXP ensembleHMM_ensemble_HMM(SEXP n_chainsSEXP, SEXP YSEXP, SEXP muSEXP, SEXP sigmaSEXP, SEXP ASEXP, SEXP alphaSEXP, SEXP KSEXP, SEXP kSEXP, SEXP nSEXP, SEXP radiusSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP estimate_marginalsSEXP, SEXP parallel_temperingSEXP, SEXP crossoversSEXP, SEXP temperaturesSEXP, SEXP swap_typeSEXP, SEXP swaps_burninSEXP, SEXP swaps_freqSEXP, SEXP which_chainsSEXP, SEXP subsequenceSEXP, SEXP xSEXP, SEXP nrows_crossoverSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< int >::type n_chains(n_chainsSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type Y(YSEXP);
-    Rcpp::traits::input_parameter< NumericVector >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type mu(muSEXP);
     Rcpp::traits::input_parameter< double >::type sigma(sigmaSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type A(ASEXP);
     Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
     Rcpp::traits::input_parameter< int >::type K(KSEXP);
     Rcpp::traits::input_parameter< int >::type k(kSEXP);
     Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< int >::type radius(radiusSEXP);
     Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
     Rcpp::traits::input_parameter< int >::type burnin(burninSEXP);
     Rcpp::traits::input_parameter< int >::type thin(thinSEXP);
@@ -177,7 +174,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< IntegerVector >::type which_chains(which_chainsSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type subsequence(subsequenceSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(FHMM(n_chains, Y, mu, sigma, A, alpha, K, k, n, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x));
+    Rcpp::traits::input_parameter< int >::type nrows_crossover(nrows_crossoverSEXP);
+    rcpp_result_gen = Rcpp::wrap(ensemble_HMM(n_chains, Y, mu, sigma, A, alpha, K, k, n, radius, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x, nrows_crossover));
     return rcpp_result_gen;
 END_RCPP
 }

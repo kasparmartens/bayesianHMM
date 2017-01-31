@@ -8,7 +8,7 @@ using namespace Rcpp;
 
 class Chain_Factorial : public Chain {
   double a_sigma, b_sigma, rho;
-  NumericVector mu;
+  NumericMatrix mu;
   double sigma;
   int K, k_hamming;
   IntegerMatrix X;
@@ -35,7 +35,7 @@ public:
     Q_FHMM = ListOf<NumericMatrix>(QQ);
   }
   
-  NumericVector& get_mu(){
+  NumericMatrix& get_mu(){
     return mu;
   }
   
@@ -73,7 +73,7 @@ public:
     x[t] = state;
   }
   
-  void initialise_pars(NumericVector mu_, double sigma_, NumericMatrix A_){
+  void initialise_pars(NumericMatrix mu_, double sigma_, NumericMatrix A_){
     // draw pi from the prior
     NumericVector pi_pars(k);
     //initialise_const_vec(pi_pars, alpha, k);
@@ -87,7 +87,7 @@ public:
     A = clone(A_);
   }
   
-  void initialise_pars(NumericVector mu_, double sigma_, NumericMatrix A_, IntegerVector x_){
+  void initialise_pars(NumericMatrix mu_, double sigma_, NumericMatrix A_, IntegerVector x_){
     // draw pi from the prior
     NumericVector pi_pars(k);
     initialise_const_vec(pi_pars, alpha, k);
@@ -109,7 +109,7 @@ public:
       for(int i=0; i<k; i++){
         double loglik = 0.0;
         for(int ii=0; ii<Y.nrow(); ii++){
-          loglik += R::dnorm4(Y(ii, t), mu[i], sigma, true);
+          loglik += R::dnorm4(Y(ii, t), mu(ii, i), sigma, true);
         }
         emission_probs(i, t) = exp(inv_temperature * loglik);
       }
@@ -148,6 +148,16 @@ public:
     //IntegerVector subseq_small(subsequence.begin(), subsequence.end()-1);
     //NumericVector switching_prob_small = switching_prob[subseq_small];
     //trace_switching_prob[index] = clone(switching_prob_small);
+  }
+  
+  double pointwise_loglik(int t){
+    if(t == 0){
+      return mylog(A(x[t], x[t+1]) * emission_probs(x[t], t));
+    } else if(t == n-1){
+      return mylog(A(x[t-1], x[t]) * emission_probs(x[t], t));
+    } else{
+      return mylog(A(x[t-1], x[t])) + mylog(A(x[t], x[t+1])) + mylog(emission_probs(x[t], t));
+    }
   }
 };
 
