@@ -121,3 +121,23 @@ int myPow(int x, int p);
 double mylog(double x);
 
 IntegerMatrix construct_all_restricted_space(int nrows_gibbs, IntegerVector which_rows_fixed, IntegerMatrix mapping);
+
+void FHMM_update_A(NumericVector rho, NumericMatrix A, IntegerMatrix mapping);
+
+IntegerVector FHMM_count_transitions(IntegerMatrix X);
+
+int hamming_distance(IntegerVector x, IntegerVector y);
+
+void fit_linear_model(IntegerMatrix XX, NumericVector yy, int n, int p, NumericVector mu);
+
+void fit_Bayesian_linear_model(IntegerMatrix XX, NumericVector yy, int n, int p, NumericVector mu, double& sigma);
+
+double ddirichlet(NumericVector x, double a, int K);
+
+NumericVector calculate_mean_for_all_t(IntegerMatrix X, NumericVector w, double h, int K, int n);
+
+double calculate_posterior_prob(NumericVector y, NumericVector lambdas, NumericVector w, double alpha0, int K, int n);
+
+NumericVector RWMH(NumericVector x, int K, double sd);
+
+double random_walk_log_scale(double current_value, double sd);

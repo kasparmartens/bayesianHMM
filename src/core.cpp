@@ -3,10 +3,12 @@
 #include "Ensemble_Gaussian.h"
 #include "Ensemble_Discrete.h"
 #include "Ensemble_Factorial.h"
+#include <RcppArmadillo.h>
 #include <RcppArmadilloExtensions/sample.h>
 #include <Rcpp/Benchmark/Timer.h>
 using namespace Rcpp;
 using namespace std;
+
 
 void compute_P(NumericMatrix PP, double& loglik, NumericVector pi, NumericMatrix A, NumericVector b, int k){
   for(int s=0; s<k; s++){
@@ -131,7 +133,7 @@ void FHMM_compute_P(NumericMatrix PP, double& loglik, NumericVector pi, NumericM
 }
 
 void FHMM_compute_P0(NumericMatrix PP, double& loglik, NumericVector pi, NumericVector b, int k, 
-                    IntegerVector which_states){
+                     IntegerVector which_states){
   // here k is length(which_states) or equivalently the ncol/nrow of PP
   int j;
   for(int s=0; s<k; s++){
@@ -172,6 +174,40 @@ void FHMM_backward_sampling(arma::ivec& x, ListOf<NumericMatrix>& P, int k, int 
   for(int t=0; t<n; t++){
     x[t] = all_hamming_balls(x_temp[t], x[t]);
   }
+}
+
+void FHMM_update_A(NumericVector transition_probs, NumericMatrix A, IntegerMatrix mapping){
+  int m = A.ncol();
+  int length = mapping.nrow();
+  int dist;
+  for(int j=0; j<m; j++){
+    for(int i=0; i<m; i++){
+      // temp value for A(i, j)
+      double temp = 1.0;
+      for(int k=0; k<length; k++){
+        if(mapping(k, i) == mapping(k, j)){
+          temp *= (1-transition_probs[k]);
+        } else{
+          temp *= transition_probs[k];
+        }
+      }
+      A(i, j) = temp;
+      //dist = hamming_distance(mapping(_, i), mapping(_, j));
+      //A(i, j) = pow(transition_prob, dist) * pow(1-transition_prob, length-dist);
+    }
+  }
+}
+
+IntegerVector FHMM_count_transitions(IntegerMatrix X){
+  IntegerVector counts(X.nrow());
+  for(int t=1; t<X.ncol(); t++){
+    for(int i=0; i<X.nrow(); i++){
+      if(X(i, t-1) != X(i, t)){
+        counts[i] += 1;
+      }
+    }
+  }
+  return counts;
 }
 
 void sample_within_hamming_ball(arma::ivec& x, int n, IntegerMatrix hamming_balls){
@@ -1004,21 +1040,21 @@ List ensemble_discrete(int n_chains, IntegerVector y, double alpha, int k, int s
 
 //' @export
 // [[Rcpp::export]]
-List ensemble_FHMM(int n_chains, NumericMatrix Y, NumericMatrix mu, double sigma, NumericMatrix A, double alpha, 
-          int K, int k, int n, int radius, 
-                       int max_iter, int burnin, int thin, 
-                       bool estimate_marginals, bool parallel_tempering, bool crossovers, 
-                       NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, 
-                       IntegerVector which_chains, IntegerVector subsequence, IntegerVector x, 
-                       int nrows_crossover, bool HB_sampling, int nrows_gibbs, IntegerMatrix all_combs){
+List ensemble_FHMM(int n_chains, NumericMatrix Y, NumericMatrix w, NumericVector transition_probs, double alpha, 
+                   int K, int k, int n, double h, int radius, 
+                   int max_iter, int burnin, int thin, 
+                   bool estimate_marginals, bool parallel_tempering, bool crossovers, 
+                   NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, 
+                   IntegerVector which_chains, IntegerVector subsequence, IntegerVector x, 
+                   int nrows_crossover, bool HB_sampling, int nrows_gibbs, IntegerMatrix all_combs, 
+                   bool update_pars){
   
   // initialise ensemble of n_chains
-  Ensemble_Factorial ensemble(n_chains, K, k, n, alpha, radius, nrows_crossover, HB_sampling, nrows_gibbs, all_combs);
+  Ensemble_Factorial ensemble(n_chains, K, k, n, alpha, h, radius, nrows_crossover, HB_sampling, nrows_gibbs, all_combs);
   
   ensemble.set_temperatures(temperatures);
   
-  // all parameters must be fixed, given as inputs
-  ensemble.initialise_pars(mu, sigma, A, x);
+  ensemble.initialise_pars(w, transition_probs, x, Y.nrow());
   ensemble.update_emission_probs(Y);
   
   int index;
@@ -1034,11 +1070,16 @@ List ensemble_FHMM(int n_chains, NumericMatrix Y, NumericMatrix mu, double sigma
   for(int iter = 1; iter <= max_iter; iter++){
     
     ensemble.update_x();
+    ensemble.update_A();
+    if(update_pars){
+      ensemble.update_mu(Y);
+    }
+    ensemble.update_emission_probs(Y);
     
     if(crossovers && (iter > swaps_burnin) && ((iter-1) % swaps_freq == 0)){
       ensemble.do_crossover();
     }
-
+    
     if((iter > burnin) && ((iter-1) % thin == 0)){
       index = (iter - burnin - 1)/thin;
       ensemble.copy_values_to_trace(which_chains, tr_x, tr_X, tr_pi, tr_A, tr_mu, tr_sigma2, tr_alpha, tr_loglik, tr_loglik_cond, tr_switching_prob, index, subsequence);
@@ -1048,7 +1089,7 @@ List ensemble_FHMM(int n_chains, NumericMatrix Y, NumericMatrix mu, double sigma
     }
     if(iter % 1000 == 0) printf("iter %d\n", iter);
   }
-
+  
   //ensemble.scale_marginals(max_iter, burnin);
   //ListOf<NumericMatrix> tr_marginal_distr = ensemble.get_copy_of_marginals(which_chains);
   
@@ -1068,4 +1109,42 @@ List ensemble_FHMM(int n_chains, NumericMatrix Y, NumericMatrix mu, double sigma
                       Rcpp::Named("timer") = t1-t0, 
                       Rcpp::Named("crossovers") = tr_crossovers);
   
+}
+
+// Poisson emissions
+
+double calculate_posterior_prob(NumericVector y, NumericVector lambdas, NumericVector w, double alpha0, int K, int n){
+  double a0 = 1.0, b0 = 0.1;
+  
+  double logprob = ddirichlet(w, alpha0, K);
+  logprob += R::dgamma(alpha0, a0, 1.0/b0, true) + log(alpha0);
+  for(int k=0; k<K; k++){
+    logprob += mylog(w[k] - w[k]*w[k]);
+  }
+  for(int t=0; t<n; t++){
+    //printf("y[t] %f, lambdas[t] %f, dpois %f\n", y[t], lambdas[t], R::dpois(y[t], lambdas[t], true));
+    logprob += R::dpois(y[t], lambdas[t]+1e-16, true);
+  }
+  return logprob;
+}
+
+NumericVector calculate_mean_for_all_t(IntegerMatrix X, NumericVector w, double h, int K, int n){
+  NumericVector lambda(n);
+  for(int t=0; t<n; t++){
+    for(int k=0; k<K; k++){
+      if(X(k, t) != 0){
+        lambda[t] += h*w[k];
+      }
+    }
+  }
+  return lambda;
+}
+
+NumericVector RWMH(NumericVector x, int K, double sd){
+  NumericVector out(K);
+  for(int k=0; k<K; k++){
+    // out[k] = random_walk_log_scale(x[k], sd);
+    out[k] = R::rgamma(1.0/K, 1.0);
+  }
+  return out;
 }

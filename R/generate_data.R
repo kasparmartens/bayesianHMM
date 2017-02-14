@@ -102,15 +102,28 @@ generate_FHMM_transition_mat = function(K, rho){
 
 match_col = function(mat, x) which(colSums(mat != x) == 0)
 
-meanfun = function(x, weights) sum(weights * x)
+#' @export
+convert_X_to_x = function(X, K, n){
+  x = rep(0, n)
+  for(t in 1:n){
+    temp = 0
+    for(i in 1:K){
+      if(X[i, t] == 1) temp = temp + 2**(i-1)
+    }
+    x[t] = temp+1
+  }
+  x
+}
 
 #' @export
-generate_FHMM = function(n, K, rho, dim_obs = 1){
+generate_FHMM = function(n, K, rho, weights, 
+                         starting_vals = rbinom(K, 1, 0.5), 
+                         sigma = 1){
   A = generate_FHMM_transition_mat(K, rho)
   mapping = decimal_to_binary_mapping(K)
   # generate X
   X = matrix(0, K, n)
-  X[, 1] = rbinom(K, 1, 0.5)
+  X[, 1] = starting_vals
   # keep a copy in x
   x = rep(0, n)
   for(t in 2:n){
@@ -121,12 +134,36 @@ generate_FHMM = function(n, K, rho, dim_obs = 1){
   }
   x[n] = new_state
   # generate Y
+  dim_obs = ncol(weights)
   Y = matrix(0, dim_obs, n)
-  weights = seq(0.5, 10, length = K)
+  if(nrow(weights) != K) stop("weight matrix must have K rows")
   for(t in 1:n){
-    Y[, t] = meanfun(X[, t], weights) + rnorm(dim_obs, 0, 1)
+    for(i in 1:dim_obs){
+      Y[i, t] = sum(X[, t] * weights[, i]) + rnorm(1, 0, sigma)
+    }
   }
   # mu values
-  mu = apply(mapping, 2, meanfun, weights)
+  mu = as.numeric(weights)
+  # mu = apply(mapping, 2, function(x){
+  #   apply(weights, 2, function(w){
+  #     sum(x * w)
+  #   })
+  # })
   return(list(Y = Y, X = X, x = factor(x), mu = mu, A = A))
+}
+
+#' @export
+add_noise = function(X, K, n, prop = 0.5){
+  # noisy X for starting vals
+  noisy_X = X
+  which_t = sample(1:n, floor(prop * n))
+  for(t in which_t){
+    how_many_rows = sample(1:K, 1)
+    which_rows = sample(1:K, how_many_rows)
+    for(i in which_rows){
+      noisy_X[i, t] = 1 - X[i, t]
+    }
+  }
+  x = convert_X_to_x(noisy_X, K, n)
+  return(list(X = noisy_X, x = x))
 }

@@ -72,6 +72,60 @@ int myPow(int x, int p) {
   return x * myPow(x, p-1);
 }
 
+double ddirichlet(NumericVector x, double alpha, int K){
+  double logprob = Rf_lgammafn(K*alpha) - K*Rf_lgammafn(alpha);
+  for(int k=0; k<K; k++){
+    logprob += (alpha-1) * mylog(x[k]);
+  }
+  return logprob;
+}
+
 double mylog(double x){
   return log(x + 1.0e-16);
+}
+
+void fit_linear_model(IntegerMatrix XX, NumericVector yy, int n, int p, NumericVector mu) {
+  arma::mat X_trans = Rcpp::as<arma::mat>(XX);
+  arma::mat X = X_trans.t();
+  arma::colvec y(yy.begin(), n, false);
+  
+  arma::colvec coef = arma::solve(X, y);    // fit model y ~ X
+  arma::colvec res  = y - X*coef;           // residuals
+  
+  // std.errors of coefficients
+  double s2 = std::inner_product(res.begin(), res.end(), res.begin(), 0.0)/(n - p);
+  
+  arma::colvec std_err = arma::sqrt(s2 * arma::diagvec(arma::pinv(arma::trans(X)*X)));  
+  
+  for(int i=0; i<p; i++){
+    mu[i] = coef[i] + R::rnorm(0, std_err[i]);
+  }
+}
+
+
+void fit_Bayesian_linear_model(IntegerMatrix XX, NumericVector yy, int n, int p, NumericVector mu, double& sigma) {
+  arma::mat X_trans = Rcpp::as<arma::mat>(XX);
+  arma::mat X = X_trans.t();
+  arma::colvec y(yy.begin(), n, false);
+  
+  arma::colvec rho(p);
+  rho.fill(0.01);
+  arma::mat V_0_inv = diagmat(rho);
+  arma::mat V_N_inv = V_0_inv + arma::trans(X)*X;
+  arma::mat V_N = inv(V_N_inv);
+  
+  arma::colvec w_N = V_N * arma::trans(X) * y;
+  
+  double a_0 = 0.1;
+  double b_0 = 0.1;
+  double a_N = a_0 + 0.5*n;
+  double ss = std::inner_product(y.begin(), y.end(), y.begin(), 0.0);
+  double b_N = b_0 + 0.5*(ss - as_scalar(arma::trans(w_N) * V_N_inv * w_N));
+  
+  sigma = 1 / sqrt(R::rgamma(a_N, 1.0/b_N));
+  arma::colvec std_err = arma::sqrt(diagvec(V_N));
+  
+  for(int i=0; i<p; i++){
+    mu[i] = R::rnorm(w_N[i], sigma * std_err[i]);
+  }
 }

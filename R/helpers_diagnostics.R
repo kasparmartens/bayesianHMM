@@ -79,3 +79,27 @@ visualise_accuracy_and_switch_rate = function(trace_x, x_true){
     geom_jitter() + theme_bw()
   return(p)
 }
+
+#' @export
+summarise_crossover_stats = function(res){
+  n = ncol(res$trace_x[[1]])
+  temp = sapply(res$crossovers[!sapply(res$crossovers, is.null)], function(x){
+    if(!is.null(x)){
+      if(x[1] == x[2]){
+        if(x[3] == 0){
+          return(0)
+        } else{
+          return(n)
+        }
+      } else{
+        x[1:2] = sort(x[1:2])
+        return(x[2]-x[1]+1)
+      }
+    }
+  })
+  cat("\n Proportions for various type of crossover moves: \n")
+  cat(sprintf("no crossover %f, swap move %f, subsequence crossovers %f \n", 
+              mean(temp == 0), 
+              mean(temp == n), 
+              1 - mean(temp %in% c(0, n))))
+}

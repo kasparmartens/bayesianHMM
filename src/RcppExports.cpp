@@ -172,20 +172,20 @@ BEGIN_RCPP
 END_RCPP
 }
 // ensemble_FHMM
-List ensemble_FHMM(int n_chains, NumericMatrix Y, NumericMatrix mu, double sigma, NumericMatrix A, double alpha, int K, int k, int n, int radius, int max_iter, int burnin, int thin, bool estimate_marginals, bool parallel_tempering, bool crossovers, NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, IntegerVector which_chains, IntegerVector subsequence, IntegerVector x, int nrows_crossover, bool HB_sampling, int nrows_gibbs, IntegerMatrix all_combs);
-RcppExport SEXP ensembleHMM_ensemble_FHMM(SEXP n_chainsSEXP, SEXP YSEXP, SEXP muSEXP, SEXP sigmaSEXP, SEXP ASEXP, SEXP alphaSEXP, SEXP KSEXP, SEXP kSEXP, SEXP nSEXP, SEXP radiusSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP estimate_marginalsSEXP, SEXP parallel_temperingSEXP, SEXP crossoversSEXP, SEXP temperaturesSEXP, SEXP swap_typeSEXP, SEXP swaps_burninSEXP, SEXP swaps_freqSEXP, SEXP which_chainsSEXP, SEXP subsequenceSEXP, SEXP xSEXP, SEXP nrows_crossoverSEXP, SEXP HB_samplingSEXP, SEXP nrows_gibbsSEXP, SEXP all_combsSEXP) {
+List ensemble_FHMM(int n_chains, NumericMatrix Y, NumericMatrix w, NumericVector transition_probs, double alpha, int K, int k, int n, double h, int radius, int max_iter, int burnin, int thin, bool estimate_marginals, bool parallel_tempering, bool crossovers, NumericVector temperatures, int swap_type, int swaps_burnin, int swaps_freq, IntegerVector which_chains, IntegerVector subsequence, IntegerVector x, int nrows_crossover, bool HB_sampling, int nrows_gibbs, IntegerMatrix all_combs, bool update_pars);
+RcppExport SEXP ensembleHMM_ensemble_FHMM(SEXP n_chainsSEXP, SEXP YSEXP, SEXP wSEXP, SEXP transition_probsSEXP, SEXP alphaSEXP, SEXP KSEXP, SEXP kSEXP, SEXP nSEXP, SEXP hSEXP, SEXP radiusSEXP, SEXP max_iterSEXP, SEXP burninSEXP, SEXP thinSEXP, SEXP estimate_marginalsSEXP, SEXP parallel_temperingSEXP, SEXP crossoversSEXP, SEXP temperaturesSEXP, SEXP swap_typeSEXP, SEXP swaps_burninSEXP, SEXP swaps_freqSEXP, SEXP which_chainsSEXP, SEXP subsequenceSEXP, SEXP xSEXP, SEXP nrows_crossoverSEXP, SEXP HB_samplingSEXP, SEXP nrows_gibbsSEXP, SEXP all_combsSEXP, SEXP update_parsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< int >::type n_chains(n_chainsSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type Y(YSEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type mu(muSEXP);
-    Rcpp::traits::input_parameter< double >::type sigma(sigmaSEXP);
-    Rcpp::traits::input_parameter< NumericMatrix >::type A(ASEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type w(wSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type transition_probs(transition_probsSEXP);
     Rcpp::traits::input_parameter< double >::type alpha(alphaSEXP);
     Rcpp::traits::input_parameter< int >::type K(KSEXP);
     Rcpp::traits::input_parameter< int >::type k(kSEXP);
     Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< double >::type h(hSEXP);
     Rcpp::traits::input_parameter< int >::type radius(radiusSEXP);
     Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
     Rcpp::traits::input_parameter< int >::type burnin(burninSEXP);
@@ -204,7 +204,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type HB_sampling(HB_samplingSEXP);
     Rcpp::traits::input_parameter< int >::type nrows_gibbs(nrows_gibbsSEXP);
     Rcpp::traits::input_parameter< IntegerMatrix >::type all_combs(all_combsSEXP);
-    rcpp_result_gen = Rcpp::wrap(ensemble_FHMM(n_chains, Y, mu, sigma, A, alpha, K, k, n, radius, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x, nrows_crossover, HB_sampling, nrows_gibbs, all_combs));
+    Rcpp::traits::input_parameter< bool >::type update_pars(update_parsSEXP);
+    rcpp_result_gen = Rcpp::wrap(ensemble_FHMM(n_chains, Y, w, transition_probs, alpha, K, k, n, h, radius, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x, nrows_crossover, HB_sampling, nrows_gibbs, all_combs, update_pars));
     return rcpp_result_gen;
 END_RCPP
 }

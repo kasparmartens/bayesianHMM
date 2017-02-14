@@ -32,6 +32,16 @@ construct_all_hamming_balls <- function(radius, mapping) {
 }
 
 #' @export
+construct_restricted_space <- function(x_t, which_rows_fixed, mapping) {
+    .Call('ensembleHMM_construct_restricted_space', PACKAGE = 'ensembleHMM', x_t, which_rows_fixed, mapping)
+}
+
+#' @export
+construct_all_restricted_space <- function(k_restricted, which_rows_fixed, mapping) {
+    .Call('ensembleHMM_construct_all_restricted_space', PACKAGE = 'ensembleHMM', k_restricted, which_rows_fixed, mapping)
+}
+
+#' @export
 ensemble_gaussian <- function(n_chains, y, alpha, k, n, max_iter, burnin, thin, estimate_marginals, fixed_pars, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, mu, sigma2, which_chains, subsequence, x) {
     .Call('ensembleHMM_ensemble_gaussian', PACKAGE = 'ensembleHMM', n_chains, y, alpha, k, n, max_iter, burnin, thin, estimate_marginals, fixed_pars, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, mu, sigma2, which_chains, subsequence, x)
 }
@@ -42,7 +52,7 @@ ensemble_discrete <- function(n_chains, y, alpha, k, s, n, max_iter, burnin, thi
 }
 
 #' @export
-ensemble_HMM <- function(n_chains, Y, mu, sigma, A, alpha, K, k, n, radius, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x, nrows_crossover) {
-    .Call('ensembleHMM_ensemble_HMM', PACKAGE = 'ensembleHMM', n_chains, Y, mu, sigma, A, alpha, K, k, n, radius, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x, nrows_crossover)
+ensemble_FHMM <- function(n_chains, Y, w, transition_probs, alpha, K, k, n, h, radius, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x, nrows_crossover, HB_sampling, nrows_gibbs, all_combs, update_pars) {
+    .Call('ensembleHMM_ensemble_FHMM', PACKAGE = 'ensembleHMM', n_chains, Y, w, transition_probs, alpha, K, k, n, h, radius, max_iter, burnin, thin, estimate_marginals, parallel_tempering, crossovers, temperatures, swap_type, swaps_burnin, swaps_freq, which_chains, subsequence, x, nrows_crossover, HB_sampling, nrows_gibbs, all_combs, update_pars)
 }
 
